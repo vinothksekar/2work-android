@@ -2,8 +2,11 @@ package com.twowork.core.di
 
 import android.content.Context
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.twowork.core.data.AdminExtrasRepository
 import com.twowork.core.data.AppUpdateRepository
 import com.twowork.core.data.AssessmentRepository
+import com.twowork.core.data.CategoryRepository
+import com.twowork.core.data.CertificateRepository
 import com.twowork.core.data.ContractRepository
 import com.twowork.core.data.DiscoveryRepository
 import com.twowork.core.data.EngagementRepository
@@ -31,6 +34,9 @@ class Graph(context: Context, debug: Boolean) {
     val assessments = AssessmentRepository(api)
     val appUpdate = AppUpdateRepository(api)
     val wallet = WalletRepository(api)
+    val certificates = CertificateRepository(api)
+    val categories = CategoryRepository(api)
+    val adminExtras = AdminExtrasRepository(api)
 }
 
 val LocalGraph = staticCompositionLocalOf<Graph> { error("Graph not provided") }

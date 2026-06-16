@@ -103,6 +103,7 @@ class WalletRepository(private val api: TwoWorkApi) {
     suspend fun saveBank(body: BankAccountRequest): ApiResult<Unit> = safeApi { api.saveBankAccount(body); Unit }
     suspend fun settlements(): ApiResult<SettlementsResponse> = safeApi { api.settlements() }
     suspend fun requestSettlement(amount: String): ApiResult<Unit> = safeApi { api.requestSettlement(SettlementRequest(amount)); Unit }
+    suspend fun affiliate(): ApiResult<AffiliateResponse> = safeApi { api.affiliate() }
 }
 
 /** Skill assessments: available exams, start an attempt, fetch questions, submit. */
@@ -117,4 +118,32 @@ class AssessmentRepository(private val api: TwoWorkApi) {
 /** Self-hosted in-app update manifest (app/android-latest.json on the server). */
 class AppUpdateRepository(private val api: TwoWorkApi) {
     suspend fun latest(): ApiResult<UpdateInfo> = safeApi { api.androidLatest() }
+}
+
+/** Skill certificates (freelancer). */
+class CertificateRepository(private val api: TwoWorkApi) {
+    suspend fun mine(): ApiResult<SkillCertificatesResponse> = safeApi { api.myCertificates() }
+}
+
+/** Project categories (public). */
+class CategoryRepository(private val api: TwoWorkApi) {
+    suspend fun all(): ApiResult<CategoriesResponse> = safeApi { api.categories() }
+}
+
+/** Admin extended operations. */
+class AdminExtrasRepository(private val api: TwoWorkApi) {
+    suspend fun adjustWallet(userId: String, amount: Double, reason: String): ApiResult<AdminWalletAdjustResponse> =
+        safeApi { api.adminAdjustWallet(userId, AdminWalletAdjustRequest(amount, reason)) }
+    suspend fun createUser(email: String, fullName: String, role: String, password: String): ApiResult<Unit> =
+        safeApi { api.adminCreateUser(AdminCreateUserRequest(email, fullName, role, password)); Unit }
+    suspend fun resetPassword(userId: String, newPassword: String): ApiResult<Unit> =
+        safeApi { api.adminResetPassword(userId, AdminResetPasswordRequest(newPassword)); Unit }
+    suspend fun questions(skill: String? = null, level: Int? = null): ApiResult<AdminQuestionsResponse> =
+        safeApi { api.adminQuestions(skill, level) }
+    suspend fun createQuestion(body: AdminQuestionRequest): ApiResult<Unit> =
+        safeApi { api.adminCreateQuestion(body); Unit }
+    suspend fun updateQuestion(id: String, body: AdminQuestionRequest): ApiResult<Unit> =
+        safeApi { api.adminUpdateQuestion(id, body); Unit }
+    suspend fun deleteQuestion(id: String): ApiResult<Unit> =
+        safeApi { api.adminDeleteQuestion(id); Unit }
 }

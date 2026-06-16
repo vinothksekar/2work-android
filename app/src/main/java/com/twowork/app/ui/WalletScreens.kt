@@ -65,7 +65,9 @@ fun WalletScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
                 item { PlanCard(sub, quota, onSubscribe = { plan ->
                     scope.launch {
                         when (val r = graph.wallet.subscribe(plan)) {
-                            is ApiResult.Ok -> { toast("Plan changed to $plan"); reload++ }
+                            is ApiResult.Ok ->
+                                if (plan == "free") { toast("Switched to Free plan"); reload++ }
+                                else toast("Paid plans activate only after an online payment.")
                             is ApiResult.Err -> toast(r.message)
                         }
                     }
@@ -151,7 +153,7 @@ private fun PlanCard(sub: SubscriptionResponse?, quota: ApplyQuota?, onSubscribe
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (plan.id == active?.id) StatusChip("current")
-                else OutlinedButton(onClick = { onSubscribe(plan.id) }) { Text(if (plan.pricePaise > 0) "Upgrade" else "Free") }
+                else OutlinedButton(onClick = { onSubscribe(plan.id) }) { Text(if (plan.pricePaise > 0) "Upgrade (pay)" else "Free") }
             }
         }
     }

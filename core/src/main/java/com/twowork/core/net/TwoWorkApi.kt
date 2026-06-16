@@ -93,6 +93,9 @@ interface TwoWorkApi {
     @POST("api/settlements")
     suspend fun requestSettlement(@Body body: SettlementRequest): JsonElement
 
+    @GET("api/affiliate")
+    suspend fun affiliate(): AffiliateResponse
+
     // ---- Skill assessments (freelancer) ----
     @GET("api/assessments/available")
     suspend fun assessmentsAvailable(): AssessmentsResponse
@@ -242,4 +245,43 @@ interface TwoWorkApi {
     // ---- Trust & safety ----
     @POST("api/reports")
     suspend fun report(@Body body: ReportRequest): JsonElement
+
+    // ---- Skill certificates ----
+    @GET("api/profile/certificates")
+    suspend fun myCertificates(): SkillCertificatesResponse
+
+    // ---- Categories ----
+    @GET("api/categories")
+    suspend fun categories(): CategoriesResponse
+
+    // ---- Admin extras ----
+    @POST("api/admin/wallet/{userId}/adjust")
+    suspend fun adminAdjustWallet(
+        @Path("userId") userId: String,
+        @Body body: AdminWalletAdjustRequest
+    ): AdminWalletAdjustResponse
+
+    @POST("api/admin/users")
+    suspend fun adminCreateUser(@Body body: AdminCreateUserRequest): JsonElement
+
+    @POST("api/admin/users/{userId}/reset-password")
+    suspend fun adminResetPassword(
+        @Path("userId") userId: String,
+        @Body body: AdminResetPasswordRequest
+    ): JsonElement
+
+    @GET("api/admin/assessments/questions")
+    suspend fun adminQuestions(
+        @Query("skill") skill: String? = null,
+        @Query("level") level: Int? = null
+    ): AdminQuestionsResponse
+
+    @POST("api/admin/assessments/questions")
+    suspend fun adminCreateQuestion(@Body body: AdminQuestionRequest): JsonElement
+
+    @PUT("api/admin/assessments/questions/{id}")
+    suspend fun adminUpdateQuestion(@Path("id") id: String, @Body body: AdminQuestionRequest): JsonElement
+
+    @DELETE("api/admin/assessments/questions/{id}")
+    suspend fun adminDeleteQuestion(@Path("id") id: String): JsonElement
 }

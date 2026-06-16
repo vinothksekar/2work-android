@@ -97,9 +97,11 @@ fun AccountScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
         }
         Spacer(Modifier.height(16.dp)); HorizontalDivider(); Spacer(Modifier.height(8.dp))
         AccountRow("Wallet & plan") { nav.push(Screen.Wallet) }
+        AccountRow("Affiliate & referrals") { nav.push(Screen.Affiliate) }
         AccountRow("Edit profile") { nav.push(Screen.EditProfile) }
         AccountRow("Identity verification") { nav.push(Screen.Verification) }
         if (user.isFreelancer) AccountRow("Skills & Certification") { nav.push(Screen.Assessments) }
+        if (user.isAdmin) AccountRow("Admin tools (wallet / users / exams)") { nav.push(Screen.AdminExtras) }
         AccountRow("Notifications") { nav.push(Screen.Notifications) }
         if (user.isFreelancer) AccountRow("Invitations") { nav.push(Screen.Invitations) }
         AccountRow(if (checkingUpdate) "Checking for updates…" else "Check for updates") {
@@ -239,6 +241,10 @@ private fun ClientProfileForm(profile: Profile?, onSave: (ClientProfileRequest) 
     var mobile by remember { mutableStateOf(profile?.mobileNumber ?: "") }
     var hourly by remember { mutableStateOf(profile?.hourlyRatePaise?.let { (it / 100).toString() } ?: "") }
     val showcase = remember { mutableStateListOf<ShowcaseEntry>().also { it.addAll(profile?.showcase ?: emptyList()) } }
+    var linkedin by remember { mutableStateOf(profile?.social?.get("linkedin") ?: "") }
+    var twitter by remember { mutableStateOf(profile?.social?.get("twitter") ?: "") }
+    var instagram by remember { mutableStateOf(profile?.social?.get("instagram") ?: "") }
+    var siteUrl by remember { mutableStateOf(profile?.social?.get("website") ?: "") }
     Column(Modifier.fillMaxWidth()) {
         Field("Company name", company) { company = it }
         Field("Description (20+ chars)", description, lines = 4) { description = it }
@@ -248,6 +254,11 @@ private fun ClientProfileForm(profile: Profile?, onSave: (ClientProfileRequest) 
         Field("Location", location) { location = it }
         Field("Mobile number", mobile) { mobile = it }
         Field("Hourly hiring budget (INR)", hourly) { hourly = it }
+        Text("Social links", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Field("LinkedIn URL", linkedin) { linkedin = it }
+        Field("Twitter/X URL", twitter) { twitter = it }
+        Field("Instagram URL", instagram) { instagram = it }
+        Field("Website URL", siteUrl) { siteUrl = it }
         RepeatEditor(
             heading = "Business highlights",
             items = showcase,
@@ -259,7 +270,8 @@ private fun ClientProfileForm(profile: Profile?, onSave: (ClientProfileRequest) 
         Spacer(Modifier.height(12.dp))
         Button(enabled = company.length >= 2 && description.length >= 20, modifier = Modifier.fillMaxWidth(),
             onClick = { onSave(ClientProfileRequest(company, description, website, title, location, orgType, mobile,
-                hourlyRate = hourly.ifBlank { null }, showcase = showcase.toList())) }) { Text("Save host profile") }
+                hourlyRate = hourly.ifBlank { null }, showcase = showcase.toList(),
+                social = mapOf("linkedin" to linkedin, "twitter" to twitter, "instagram" to instagram, "website" to siteUrl).filterValues { it.isNotBlank() })) }) { Text("Save host profile") }
     }
 }
 
@@ -274,6 +286,10 @@ private fun FreelancerProfileForm(profile: Profile?, onSave: (FreelancerProfileR
     var handle by remember { mutableStateOf(profile?.handle ?: "") }
     var isPublic by remember { mutableStateOf(profile?.isPublic ?: false) }
     val experience = remember { mutableStateListOf<ExperienceEntry>().also { it.addAll(profile?.experience ?: emptyList()) } }
+    var linkedin by remember { mutableStateOf(profile?.social?.get("linkedin") ?: "") }
+    var github by remember { mutableStateOf(profile?.social?.get("github") ?: "") }
+    var twitter by remember { mutableStateOf(profile?.social?.get("twitter") ?: "") }
+    var siteUrl by remember { mutableStateOf(profile?.social?.get("website") ?: "") }
     Column(Modifier.fillMaxWidth()) {
         Field("Headline", headline) { headline = it }
         Field("Public handle", handle) { handle = it }
@@ -282,6 +298,11 @@ private fun FreelancerProfileForm(profile: Profile?, onSave: (FreelancerProfileR
         Field("Bio (20+ chars)", bio, lines = 4) { bio = it }
         Field("Location", location) { location = it }
         Field("Availability", availability) { availability = it }
+        Text("Social links", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Field("LinkedIn URL", linkedin) { linkedin = it }
+        Field("GitHub URL", github) { github = it }
+        Field("Twitter/X URL", twitter) { twitter = it }
+        Field("Website URL", siteUrl) { siteUrl = it }
         RepeatEditor(
             heading = "Work experience",
             items = experience,
@@ -299,7 +320,8 @@ private fun FreelancerProfileForm(profile: Profile?, onSave: (FreelancerProfileR
                 headline = headline, bio = bio,
                 skills = skills.split(",").map { it.trim() }.filter { it.isNotEmpty() },
                 hourlyRate = rate.ifBlank { null }, location = location, availability = availability,
-                handle = handle.ifBlank { null }, isPublic = isPublic, experience = experience.toList()
+                handle = handle.ifBlank { null }, isPublic = isPublic, experience = experience.toList(),
+                social = mapOf("linkedin" to linkedin, "github" to github, "twitter" to twitter, "website" to siteUrl).filterValues { it.isNotBlank() }
             ))
         }) { Text("Save worker profile") }
     }

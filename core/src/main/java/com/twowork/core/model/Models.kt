@@ -101,6 +101,7 @@ data class Profile(
     // (server returns the same hourly_rate_paise column for client_profiles).
     val experience: List<ExperienceEntry> = emptyList(),
     val showcase: List<ShowcaseEntry> = emptyList(),
+    val social: Map<String, String> = emptyMap(),
     // shared
     val location: String? = null
 )
@@ -186,7 +187,8 @@ data class ClientProfileRequest(
     val organisationType: String = "",
     val mobileNumber: String = "",
     val hourlyRate: String? = null,
-    val showcase: List<ShowcaseEntry> = emptyList()
+    val showcase: List<ShowcaseEntry> = emptyList(),
+    val social: Map<String, String> = emptyMap()
 )
 
 @Serializable
@@ -204,7 +206,8 @@ data class FreelancerProfileRequest(
     val preferredEngagement: String = "",
     val handle: String? = null,
     val isPublic: Boolean = false,
-    val experience: List<ExperienceEntry> = emptyList()
+    val experience: List<ExperienceEntry> = emptyList(),
+    val social: Map<String, String> = emptyMap()
 )
 
 @Serializable
@@ -505,11 +508,77 @@ data class AttemptQuestionsResponse(
 data class SubmitAnswersRequest(val answers: Map<String, String>)
 
 @Serializable
+data class SkillCertificate(
+    val id: String = "",
+    val skill: String = "",
+    val level: Int = 0,
+    @SerialName("cert_number") val certNumber: String = "",
+    val score: Int = 0,
+    val total: Int = 0,
+    @SerialName("issued_at") val issuedAt: String? = null
+)
+
+@Serializable
+data class SkillCertificatesResponse(val certificates: List<SkillCertificate> = emptyList())
+
+@Serializable
 data class SubmitResultResponse(
     val passed: Boolean = false,
     val score: Int = 0,
     val total: Int = 0,
-    val badge: SkillBadge? = null
+    val badge: SkillBadge? = null,
+    val certificate: SkillCertificate? = null
+)
+
+// ---- Categories ----
+@Serializable
+data class Category(val id: String = "", val name: String = "", val slug: String = "", val description: String = "")
+
+@Serializable
+data class CategoriesResponse(val categories: List<Category> = emptyList())
+
+// ---- Admin extras ----
+@Serializable
+data class AdminWalletAdjustRequest(val amount: Double, val reason: String)
+
+@Serializable
+data class AdminWalletAdjustResponse(val balance: Long = 0)
+
+@Serializable
+data class AdminCreateUserRequest(
+    val email: String,
+    val fullName: String,
+    val role: String,
+    val password: String,
+    val skipEmailVerification: Boolean = true
+)
+
+@Serializable
+data class AdminResetPasswordRequest(val newPassword: String)
+
+// Admin question bank
+@Serializable
+data class AdminQuestion(
+    val id: String = "",
+    val skill: String = "",
+    val level: Int = 0,
+    val question: String = "",
+    val options: List<QuestionOption> = emptyList(),
+    @SerialName("correct_key") val correctKey: String = "",
+    val active: Boolean = true
+)
+
+@Serializable
+data class AdminQuestionsResponse(val questions: List<AdminQuestion> = emptyList())
+
+@Serializable
+data class AdminQuestionRequest(
+    val skill: String,
+    val level: Int,
+    val question: String,
+    val options: List<QuestionOption>,
+    val correctKey: String,
+    val active: Boolean = true
 )
 
 // ---------------------------------------------------------------------------
@@ -766,3 +835,27 @@ data class SettlementRequest(val amount: String)
 
 @Serializable
 data class ProfileMediaResponse(val media: ProfileMedia = ProfileMedia())
+
+// ---- Affiliate / referrals ----
+
+@Serializable
+data class AffiliateReferral(
+    @SerialName("referred_user_id") val referredUserId: String = "",
+    @SerialName("full_name") val fullName: String = "",
+    val role: String = "",
+    val status: String = "",
+    @SerialName("commission_paise") val commissionPaise: Long = 0,
+    @SerialName("created_at") val createdAt: String? = null
+)
+
+@Serializable
+data class AffiliateStats(val total: Int = 0, val converted: Int = 0, val earnedPaise: Long = 0)
+
+@Serializable
+data class AffiliateResponse(
+    val code: String = "",
+    val shareUrl: String = "",
+    val commissionPercent: Double = 10.0,
+    val referrals: List<AffiliateReferral> = emptyList(),
+    val stats: AffiliateStats = AffiliateStats()
+)
