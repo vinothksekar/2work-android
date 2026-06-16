@@ -154,6 +154,9 @@ interface TwoWorkApi {
     @POST("api/milestones/{id}/client-ratings")
     suspend fun rateClient(@Path("id") id: String, @Body body: RatingRequest): JsonElement
 
+    @POST("api/contracts/{id}/cancel")
+    suspend fun cancelContract(@Path("id") id: String, @Body body: CancelContractRequest): JsonElement
+
     // ---- Conversations ----
     @GET("api/conversations")
     suspend fun conversations(): ConversationsResponse

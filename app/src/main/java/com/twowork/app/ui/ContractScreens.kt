@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -43,6 +44,7 @@ private sealed interface MsAction {
     data class Dispute(val milestoneId: String) : MsAction
     data class RateFreelancer(val milestoneId: String) : MsAction
     data class RateClient(val milestoneId: String) : MsAction
+    data class CancelContract(val contractId: String) : MsAction
 }
 
 @Composable
@@ -93,6 +95,9 @@ fun ContractsScreen(user: User, modifier: Modifier = Modifier) {
         }
         is MsAction.RateClient -> RateDialog("Rate client", { action = null }) { score, review, done ->
             scope.launch { done(graph.contracts.rateClient(a.milestoneId, RatingRequest(score, review))) }
+        }
+        is MsAction.CancelContract -> CancelContractDialog(a.contractId, { action = null }) {
+            action = null; reload++; toast("Contract closed — feedback recorded on the freelancer")
         }
         null -> {}
     }
@@ -149,6 +154,13 @@ private fun ContractCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+        }
+        if (user.isClient && contract.status == "active" && contract.milestones.all { it.status == "awaiting_funding" }) {
+            Spacer(Modifier.height(4.dp))
+            OutlinedButton(
+                onClick = { onAction(MsAction.CancelContract(contract.id)) },
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) { Text("Cancel & close with feedback") }
         }
     }
 }
@@ -249,4 +261,43 @@ private fun RateDialog(title: String, onDismiss: () -> Unit, submit: (Int, Strin
             }) { Text("Submit") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+}
+
+@Composable
+private fun CancelContractDialog(contractId: String, onDismiss: () -> Unit, onDone: () -> Unit) {
+    val graph = LocalGraph.current
+    val scope = rememberCoroutineScope()
+    val toast = rememberToaster()
+    var score by remember { mutableIntStateOf(2) }
+    var reason by remember { mutableStateOf("") }
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Cancel & close contract") },
+        text = {
+            Column {
+                Text(
+                    "Use this if the freelancer is unresponsive. The contract and project close, and your feedback is recorded on the freelancer's public rating. Only available before any milestone is funded.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                Text("Rating for the freelancer", style = MaterialTheme.typography.labelMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    (1..5).forEach { n ->
+                        OutlinedButton(onClick = { score = n }) { Text(if (n <= score) "★" else "☆") }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(reason, { reason = it }, label = { Text("Reason (10+ chars)") },
+                    modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = reason.trim().length >= 10, onClick = {
+                scope.launch {
+                    when (val r = graph.contracts.cancel(contractId, reason.trim(), score)) {
+                        is ApiResult.Ok -> onDone()
+                        is ApiResult.Err -> toast(r.message)
+                    }
+                }
+            }) { Text("Close contract") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Keep open") } })
 }

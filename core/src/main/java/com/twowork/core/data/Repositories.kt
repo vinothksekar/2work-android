@@ -49,6 +49,8 @@ class ContractRepository(private val api: TwoWorkApi) {
     suspend fun dispute(milestoneId: String, body: DisputeRequest): ApiResult<Unit> = safeApi { api.openDispute(milestoneId, body); Unit }
     suspend fun rateFreelancer(milestoneId: String, body: RatingRequest): ApiResult<Unit> = safeApi { api.rateFreelancer(milestoneId, body); Unit }
     suspend fun rateClient(milestoneId: String, body: RatingRequest): ApiResult<Unit> = safeApi { api.rateClient(milestoneId, body); Unit }
+    suspend fun cancel(contractId: String, reason: String, score: Int): ApiResult<Unit> =
+        safeApi { api.cancelContract(contractId, CancelContractRequest(reason, score)); Unit }
 }
 
 /** Conversations / messaging + attachments. */

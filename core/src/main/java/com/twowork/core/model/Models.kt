@@ -378,6 +378,9 @@ data class DisputeRequest(val reason: String, val evidence: String, val artifact
 data class RatingRequest(val score: Int, val review: String = "")
 
 @Serializable
+data class CancelContractRequest(val reason: String, val score: Int)
+
+@Serializable
 data class RazorpayOrder(
     val keyId: String = "",
     val orderId: String = "",
