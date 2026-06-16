@@ -1,5 +1,11 @@
 package com.twowork.app.ui
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,32 +16,45 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
+import com.twowork.core.di.Graph
 import com.twowork.core.di.LocalGraph
+import com.twowork.core.model.Attachment
 import com.twowork.core.model.Conversation
+import com.twowork.core.model.Message
 import com.twowork.core.net.ApiResult
 import com.twowork.core.ui.EllipsisText
 import com.twowork.core.ui.EmptyState
 import com.twowork.core.ui.ListCard
+import com.twowork.core.ui.Pill
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 @Composable
 fun ConversationsScreen(nav: Nav, modifier: Modifier = Modifier) {
@@ -63,38 +82,141 @@ fun ConversationsScreen(nav: Nav, modifier: Modifier = Modifier) {
 @Composable
 fun ThreadScreen(conversation: Conversation, nav: Nav, modifier: Modifier = Modifier) {
     val graph = LocalGraph.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val toast = rememberToaster()
+    var messages by remember { mutableStateOf<List<Message>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
     var draft by remember { mutableStateOf("") }
-    var reload by remember { mutableIntStateOf(0) }
+    var sending by remember { mutableStateOf(false) }
+    var pickedIds by remember { mutableStateOf<List<String>>(emptyList()) }
+    var pickedNames by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    fun mergeNew(incoming: List<Message>) {
+        if (incoming.isEmpty()) return
+        val seen = messages.mapTo(HashSet()) { it.id }
+        messages = messages + incoming.filter { it.id !in seen }
+    }
+
+    // Initial load, then poll every 4s for new messages (lightweight "live" chat).
+    LaunchedEffect(conversation.id) {
+        when (val r = graph.messages.messages(conversation.id)) {
+            is ApiResult.Ok -> messages = r.data.messages
+            is ApiResult.Err -> toast(r.message)
+        }
+        loading = false
+        while (true) {
+            delay(4000)
+            val after = messages.lastOrNull()?.createdAt
+            val r = graph.messages.messages(conversation.id, after)
+            if (r is ApiResult.Ok) mergeNew(r.data.messages)
+        }
+    }
+
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
+            val name = queryFileName(context, uri)
+            val bytes = withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }
+            when {
+                bytes == null || bytes.isEmpty() -> toast("Could not read the file")
+                bytes.size > 12 * 1024 * 1024 -> toast("File too large (max 12 MB)")
+                else -> when (val r = graph.messages.uploadAttachment(bytes, mime, name)) {
+                    is ApiResult.Ok -> { pickedIds = pickedIds + r.data.id; pickedNames = pickedNames + r.data.fileName }
+                    is ApiResult.Err -> toast(r.message)
+                }
+            }
+        }
+    }
+
+    fun doSend() {
+        val text = draft.trim()
+        if ((text.isEmpty() && pickedIds.isEmpty()) || sending) return
+        scope.launch {
+            sending = true
+            when (val r = graph.messages.send(conversation.id, text, pickedIds)) {
+                is ApiResult.Ok -> {
+                    draft = ""; pickedIds = emptyList(); pickedNames = emptyList()
+                    val r2 = graph.messages.messages(conversation.id, messages.lastOrNull()?.createdAt)
+                    if (r2 is ApiResult.Ok) mergeNew(r2.data.messages)
+                }
+                is ApiResult.Err -> toast(r.message)
+            }
+            sending = false
+        }
+    }
 
     TopBarScaffold(title = conversation.projectTitle ?: "Messages", onBack = { nav.pop() }) { m ->
         Column(m.fillMaxSize()) {
-            ApiContent(loaderKey = reload, loader = { graph.messages.messages(conversation.id) }, modifier = Modifier.weight(1f)) { resp ->
-                if (resp.messages.isEmpty()) EmptyState("No messages yet — say hello.")
-                else LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                    items(resp.messages, key = { it.id }) { msg ->
+            when {
+                loading -> Column(Modifier.fillMaxSize().weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Spacer(Modifier.height(40.dp)); CircularProgressIndicator()
+                }
+                messages.isEmpty() -> EmptyState("No messages yet — say hello.", Modifier.weight(1f))
+                else -> LazyColumn(Modifier.fillMaxSize().weight(1f).padding(horizontal = 16.dp)) {
+                    items(messages, key = { it.id }) { msg ->
                         Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                             Text(msg.senderName ?: "User", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                            Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
-                                Text(msg.body, modifier = Modifier.padding(10.dp), style = MaterialTheme.typography.bodyMedium)
+                            if (msg.body.isNotBlank()) {
+                                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
+                                    Text(msg.body, modifier = Modifier.padding(10.dp), style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                            msg.attachments.forEach { att ->
+                                TextButton(onClick = { scope.launch { openAttachment(context, graph, att, toast) } }) {
+                                    Text("📎 ${att.fileName}")
+                                }
                             }
                         }
                     }
                 }
             }
+            if (pickedNames.isNotEmpty()) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    pickedNames.forEach { Pill(it) }
+                }
+            }
             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { picker.launch("*/*") }) { Icon(Icons.Filled.AttachFile, contentDescription = "Attach") }
                 OutlinedTextField(draft, { draft = it }, label = { Text("Message") }, modifier = Modifier.weight(1f))
-                IconButton(onClick = {
-                    val text = draft.trim()
-                    if (text.length >= 2) {
-                        scope.launch {
-                            val r = graph.messages.send(conversation.id, text)
-                            if (r is ApiResult.Ok) { draft = ""; reload++ } else if (r is ApiResult.Err) toast(r.message)
-                        }
-                    }
-                }) { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send") }
+                IconButton(onClick = { doSend() }, enabled = !sending) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+                }
             }
         }
+    }
+}
+
+internal fun queryFileName(context: Context, uri: Uri): String {
+    var name = "file"
+    context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index >= 0) cursor.getString(index)?.let { name = it }
+        }
+    }
+    return name
+}
+
+/** Downloads an attachment with the session cookie, then opens it via the system viewer. */
+internal suspend fun openAttachment(context: Context, graph: Graph, attachment: Attachment, toast: (String) -> Unit) {
+    when (val r = graph.messages.downloadAttachment(attachment.id)) {
+        is ApiResult.Ok -> {
+            try {
+                val dir = File(context.cacheDir, "attachments").apply { mkdirs() }
+                val file = File(dir, attachment.fileName.ifBlank { "file" })
+                withContext(Dispatchers.IO) { file.writeBytes(r.data) }
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, attachment.mimeType)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                toast("No app can open ${attachment.fileName}")
+            }
+        }
+        is ApiResult.Err -> toast(r.message)
     }
 }

@@ -270,14 +270,20 @@ data class Proposal(
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("freelancer_name") val freelancerName: String? = null,
     val skills: List<String> = emptyList(),
-    @SerialName("verification_state") val verificationState: String? = null
+    @SerialName("verification_state") val verificationState: String? = null,
+    val attachments: List<Attachment> = emptyList()
 )
 
 @Serializable
 data class ProposalsResponse(val proposals: List<Proposal> = emptyList())
 
 @Serializable
-data class ProposalRequest(val coverLetter: String, val amount: String, val durationDays: Int)
+data class ProposalRequest(
+    val coverLetter: String,
+    val amount: String,
+    val durationDays: Int,
+    val attachmentIds: List<String> = emptyList()
+)
 
 @Serializable
 data class MilestoneInput(val title: String, val amount: String)
@@ -494,14 +500,36 @@ data class Message(
     @SerialName("attachment_url") val attachmentUrl: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("sender_name") val senderName: String? = null,
-    @SerialName("sender_role") val senderRole: String? = null
+    @SerialName("sender_role") val senderRole: String? = null,
+    val attachments: List<Attachment> = emptyList()
 )
 
 @Serializable
 data class MessagesResponse(val thread: Conversation? = null, val messages: List<Message> = emptyList())
 
 @Serializable
-data class MessageRequest(val message: String, val attachmentUrl: String = "")
+data class MessageRequest(
+    val message: String,
+    val attachmentUrl: String = "",
+    val attachmentIds: List<String> = emptyList()
+)
+
+@Serializable
+data class Attachment(
+    val id: String,
+    val fileName: String = "file",
+    val mimeType: String = "application/octet-stream",
+    val byteSize: Long = 0
+)
+
+@Serializable
+data class AttachmentUploadResponse(val attachment: Attachment)
+
+@Serializable
+data class ConversationRef(val id: String)
+
+@Serializable
+data class OpenConversationResponse(val thread: ConversationRef)
 
 // ---------------------------------------------------------------------------
 // Notifications, invitations, saved, reports, metrics

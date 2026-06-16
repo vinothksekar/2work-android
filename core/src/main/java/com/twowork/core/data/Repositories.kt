@@ -51,11 +51,19 @@ class ContractRepository(private val api: TwoWorkApi) {
     suspend fun rateClient(milestoneId: String, body: RatingRequest): ApiResult<Unit> = safeApi { api.rateClient(milestoneId, body); Unit }
 }
 
-/** Conversations / messaging. */
+/** Conversations / messaging + attachments. */
 class MessageRepository(private val api: TwoWorkApi) {
     suspend fun conversations(): ApiResult<ConversationsResponse> = safeApi { api.conversations() }
-    suspend fun messages(threadId: String): ApiResult<MessagesResponse> = safeApi { api.messages(threadId) }
-    suspend fun send(threadId: String, text: String): ApiResult<Unit> = safeApi { api.sendMessage(threadId, MessageRequest(text)); Unit }
+    suspend fun messages(threadId: String, after: String? = null): ApiResult<MessagesResponse> =
+        safeApi { api.messages(threadId, after) }
+    suspend fun send(threadId: String, text: String, attachmentIds: List<String> = emptyList()): ApiResult<Unit> =
+        safeApi { api.sendMessage(threadId, MessageRequest(message = text, attachmentIds = attachmentIds)); Unit }
+    suspend fun openConversation(proposalId: String): ApiResult<String> =
+        safeApi { api.openConversation(proposalId).thread.id }
+    suspend fun uploadAttachment(bytes: ByteArray, mime: String, fileName: String): ApiResult<Attachment> =
+        safeApi { api.uploadAttachment(fileName, bytes.toRequestBody(mime.toMediaTypeOrNull())).attachment }
+    suspend fun downloadAttachment(id: String): ApiResult<ByteArray> =
+        safeApi { api.downloadAttachment(id).bytes() }
 }
 
 /** Notifications + invitations + reports. */

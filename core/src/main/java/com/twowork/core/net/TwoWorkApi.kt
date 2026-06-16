@@ -3,6 +3,7 @@ package com.twowork.core.net
 import com.twowork.core.model.*
 import kotlinx.serialization.json.JsonElement
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
@@ -158,10 +159,20 @@ interface TwoWorkApi {
     suspend fun conversations(): ConversationsResponse
 
     @GET("api/conversations/{id}/messages")
-    suspend fun messages(@Path("id") id: String): MessagesResponse
+    suspend fun messages(@Path("id") id: String, @Query("after") after: String? = null): MessagesResponse
 
     @POST("api/conversations/{id}/messages")
     suspend fun sendMessage(@Path("id") id: String, @Body body: MessageRequest): JsonElement
+
+    @POST("api/proposals/{id}/conversation")
+    suspend fun openConversation(@Path("id") id: String, @Body body: EmptyBody = EmptyBody()): OpenConversationResponse
+
+    // ---- Attachments ----
+    @POST("api/attachments")
+    suspend fun uploadAttachment(@Query("name") name: String, @Body file: RequestBody): AttachmentUploadResponse
+
+    @GET("api/attachments/{id}")
+    suspend fun downloadAttachment(@Path("id") id: String): ResponseBody
 
     // ---- Notifications ----
     @GET("api/notifications")

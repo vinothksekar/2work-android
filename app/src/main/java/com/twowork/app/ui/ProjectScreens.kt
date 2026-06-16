@@ -1,5 +1,7 @@
 package com.twowork.app.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +31,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -40,10 +43,13 @@ import com.twowork.core.ui.ListCard
 import com.twowork.core.ui.StatusChip
 import com.twowork.core.ui.TagRow
 import com.twowork.core.ui.TitleValue
+import com.twowork.core.ui.Pill
 import com.twowork.core.ui.formatMoney
 import com.twowork.core.ui.prettyStatus
 import com.twowork.core.ui.shortDate
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private fun paiseToRupees(paise: Long): String = "%d.%02d".format(paise / 100, paise % 100)
 
@@ -116,31 +122,54 @@ fun ProjectDetailScreen(user: User, project: Project, nav: Nav, modifier: Modifi
 @Composable
 private fun ProposalDialog(project: Project, onDismiss: () -> Unit, onSent: () -> Unit) {
     val graph = LocalGraph.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val toast = rememberToaster()
     var cover by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf(paiseToRupees(project.budgetPaise)) }
     var days by remember { mutableStateOf("7") }
     var busy by remember { mutableStateOf(false) }
+    var pickedIds by remember { mutableStateOf<List<String>>(emptyList()) }
+    var pickedNames by remember { mutableStateOf<List<String>>(emptyList()) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
+            val name = queryFileName(context, uri)
+            val bytes = withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }
+            when {
+                bytes == null || bytes.isEmpty() -> toast("Could not read the file")
+                bytes.size > 12 * 1024 * 1024 -> toast("File too large (max 12 MB)")
+                else -> when (val r = graph.messages.uploadAttachment(bytes, mime, name)) {
+                    is ApiResult.Ok -> { pickedIds = pickedIds + r.data.id; pickedNames = pickedNames + r.data.fileName }
+                    is ApiResult.Err -> toast(r.message)
+                }
+            }
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Send proposal") },
         text = {
             Column {
-                OutlinedTextField(cover, { cover = it }, label = { Text("Cover letter (20+ chars)") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(cover, { cover = it }, label = { Text("Cover letter (20+ chars)") },
+                    minLines = 4, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(amount, { amount = it }, label = { Text("Amount (INR)") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(days, { days = it.filter(Char::isDigit) }, label = { Text("Delivery days") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = { picker.launch("*/*") }, modifier = Modifier.fillMaxWidth()) { Text("Attach files (optional)") }
+                pickedNames.forEach { Text("📎 $it", style = MaterialTheme.typography.labelMedium) }
             }
         },
         confirmButton = {
             TextButton(enabled = !busy && cover.length >= 20 && (days.toIntOrNull() ?: 0) > 0, onClick = {
                 busy = true
                 scope.launch {
-                    val r = graph.projects.sendProposal(project.id, ProposalRequest(cover, amount, days.toInt()))
+                    val r = graph.projects.sendProposal(project.id, ProposalRequest(cover, amount, days.toInt(), pickedIds))
                     busy = false
                     if (r is ApiResult.Ok) onSent() else if (r is ApiResult.Err) toast(r.message)
                 }
@@ -301,6 +330,8 @@ fun PostProjectScreen(nav: Nav, modifier: Modifier = Modifier) {
 @Composable
 fun ProposalsScreen(project: Project, nav: Nav, modifier: Modifier = Modifier) {
     val graph = LocalGraph.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val toast = rememberToaster()
     var awardFor by remember { mutableStateOf<Proposal?>(null) }
     var reload by remember { mutableStateOf(0) }
@@ -321,10 +352,25 @@ fun ProposalsScreen(project: Project, nav: Nav, modifier: Modifier = Modifier) {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.height(6.dp))
                             Text(p.coverLetter, style = MaterialTheme.typography.bodyMedium)
+                            p.attachments.forEach { att ->
+                                TextButton(onClick = { scope.launch { openAttachment(context, graph, att, toast) } }) {
+                                    Text("📎 ${att.fileName}")
+                                }
+                            }
                             TagRow(p.skills.take(6))
-                            if (p.status == "submitted") {
-                                Spacer(Modifier.height(8.dp))
-                                Button(onClick = { awardFor = p }) { Text("Award contract") }
+                            Spacer(Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = {
+                                    scope.launch {
+                                        when (val r = graph.messages.openConversation(p.id)) {
+                                            is ApiResult.Ok -> nav.push(Screen.Thread(Conversation(id = r.data, projectTitle = project.title, freelancerName = p.freelancerName)))
+                                            is ApiResult.Err -> toast(r.message)
+                                        }
+                                    }
+                                }) { Text("Message") }
+                                if (p.status == "submitted") {
+                                    Button(onClick = { awardFor = p }) { Text("Award") }
+                                }
                             }
                         }
                     }

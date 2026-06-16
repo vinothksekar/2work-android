@@ -2,4 +2,6 @@
 <paths>
     <!-- Downloaded update APK lives in the app's external Download dir. -->
     <external-files-path name="updates" path="Download/" />
+    <!-- Downloaded chat/proposal attachments opened from the cache dir. -->
+    <cache-path name="attachments" path="attachments/" />
 </paths>
