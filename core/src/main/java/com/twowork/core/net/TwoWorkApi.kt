@@ -55,6 +55,44 @@ interface TwoWorkApi {
     @POST("api/verification/documents")
     suspend fun uploadVerificationDocument(@Query("type") type: String, @Body image: RequestBody): JsonElement
 
+    @POST("api/profile/media")
+    suspend fun uploadProfileMedia(
+        @Query("kind") kind: String,
+        @Query("caption") caption: String,
+        @Body image: RequestBody
+    ): ProfileMediaResponse
+
+    @DELETE("api/profile/media/{id}")
+    suspend fun deleteProfileMedia(@Path("id") id: String): JsonElement
+
+    // ---- Wallet / plans / subscription / quota / bank / settlements ----
+    @GET("api/wallet")
+    suspend fun wallet(): WalletResponse
+
+    @POST("api/wallet/topup")
+    suspend fun topupWallet(@Body body: TopupRequest): JsonElement
+
+    @GET("api/subscription")
+    suspend fun subscription(): SubscriptionResponse
+
+    @POST("api/subscription")
+    suspend fun subscribe(@Body body: SubscribeRequest): JsonElement
+
+    @GET("api/quota")
+    suspend fun quota(): QuotaResponse
+
+    @GET("api/bank-account")
+    suspend fun bankAccount(): BankAccountResponse
+
+    @PUT("api/bank-account")
+    suspend fun saveBankAccount(@Body body: BankAccountRequest): JsonElement
+
+    @GET("api/settlements")
+    suspend fun settlements(): SettlementsResponse
+
+    @POST("api/settlements")
+    suspend fun requestSettlement(@Body body: SettlementRequest): JsonElement
+
     // ---- Skill assessments (freelancer) ----
     @GET("api/assessments/available")
     suspend fun assessmentsAvailable(): AssessmentsResponse

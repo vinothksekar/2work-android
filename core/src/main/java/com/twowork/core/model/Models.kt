@@ -97,9 +97,38 @@ data class Profile(
     @SerialName("preferred_engagement") val preferredEngagement: String? = null,
     @SerialName("is_public") val isPublic: Boolean = false,
     @SerialName("verification_state") val verificationState: String? = null,
+    // hourlyRatePaise above is reused for the client's hourly hiring budget
+    // (server returns the same hourly_rate_paise column for client_profiles).
+    val experience: List<ExperienceEntry> = emptyList(),
+    val showcase: List<ShowcaseEntry> = emptyList(),
     // shared
     val location: String? = null
 )
+
+@Serializable
+data class ExperienceEntry(
+    val title: String = "",
+    val company: String = "",
+    val period: String = "",
+    val description: String = ""
+)
+
+@Serializable
+data class ShowcaseEntry(val title: String = "", val description: String = "")
+
+@Serializable
+data class ProfileMedia(
+    val id: String = "",
+    val kind: String = "",
+    val caption: String = "",
+    @SerialName("sort_order") val sortOrder: Int = 0
+)
+
+@Serializable
+data class ProfileMediaBundle(val avatar: ProfileMedia? = null, val projects: List<ProfileMedia> = emptyList())
+
+@Serializable
+data class RatingSummary(val average: Double = 0.0, val count: Int = 0)
 
 @Serializable
 data class VerificationRequest(
@@ -113,6 +142,8 @@ data class ProfileResponse(
     val user: User? = null,
     val profile: Profile? = null,
     val verification: VerificationRequest? = null,
+    val media: ProfileMediaBundle = ProfileMediaBundle(),
+    val rating: RatingSummary = RatingSummary(),
     val verificationType: String? = null
 )
 
@@ -129,7 +160,21 @@ data class Stats(
 )
 
 @Serializable
-data class DashboardResponse(val stats: Stats = Stats())
+data class DashboardMoney(
+    @SerialName("balancePaise") val balancePaise: Long = 0,
+    @SerialName("totalEarnedPaise") val totalEarnedPaise: Long = 0,
+    @SerialName("totalCommissionPaise") val totalCommissionPaise: Long = 0,
+    @SerialName("totalSettledPaise") val totalSettledPaise: Long = 0,
+    @SerialName("pendingSettlementPaise") val pendingSettlementPaise: Long = 0,
+    val plan: PlanSummary = PlanSummary()
+)
+
+@Serializable
+data class DashboardResponse(
+    val stats: Stats = Stats(),
+    val money: DashboardMoney? = null,
+    val rating: RatingSummary? = null
+)
 
 @Serializable
 data class ClientProfileRequest(
@@ -139,7 +184,9 @@ data class ClientProfileRequest(
     val contactTitle: String = "",
     val location: String = "",
     val organisationType: String = "",
-    val mobileNumber: String = ""
+    val mobileNumber: String = "",
+    val hourlyRate: String? = null,
+    val showcase: List<ShowcaseEntry> = emptyList()
 )
 
 @Serializable
@@ -156,7 +203,8 @@ data class FreelancerProfileRequest(
     val availability: String = "",
     val preferredEngagement: String = "",
     val handle: String? = null,
-    val isPublic: Boolean = false
+    val isPublic: Boolean = false,
+    val experience: List<ExperienceEntry> = emptyList()
 )
 
 @Serializable
@@ -597,3 +645,124 @@ data class Metrics(
 
 @Serializable
 data class MetricsResponse(val metrics: Metrics = Metrics())
+
+// ---- Wallet, plans, subscription, quota, bank, settlement ----
+
+@Serializable
+data class PlanSummary(
+    val id: String = "free",
+    val label: String = "Free",
+    val pricePaise: Long = 0,
+    val commissionBps: Int = 1000,
+    val commissionPercent: Double = 10.0,
+    val applyStart: Int = 12,
+    val refillAmount: Int = 1,
+    val refillIntervalHours: Int = 2
+)
+
+@Serializable
+data class WalletSummary(
+    val balancePaise: Long = 0,
+    val currency: String = "INR",
+    val plan: PlanSummary = PlanSummary()
+)
+
+@Serializable
+data class WalletFlowStats(
+    val totalEarnedPaise: Long = 0,
+    val totalCommissionPaise: Long = 0,
+    val totalSettledPaise: Long = 0
+)
+
+@Serializable
+data class WalletTransaction(
+    val id: String = "",
+    @SerialName("amount_paise") val amountPaise: Long = 0,
+    @SerialName("balance_after") val balanceAfter: Long = 0,
+    val kind: String = "",
+    val description: String = "",
+    @SerialName("created_at") val createdAt: String? = null
+)
+
+@Serializable
+data class WalletResponse(
+    val wallet: WalletSummary = WalletSummary(),
+    val stats: WalletFlowStats = WalletFlowStats(),
+    val transactions: List<WalletTransaction> = emptyList()
+)
+
+@Serializable
+data class TopupRequest(val amount: String)
+
+@Serializable
+data class SubscriptionState(
+    val plan: String = "free",
+    val status: String = "active",
+    @SerialName("current_period_end") val currentPeriodEnd: String? = null
+)
+
+@Serializable
+data class SubscriptionResponse(
+    val subscription: SubscriptionState = SubscriptionState(),
+    val activePlan: PlanSummary = PlanSummary(),
+    val plans: List<PlanSummary> = emptyList()
+)
+
+@Serializable
+data class SubscribeRequest(val plan: String)
+
+@Serializable
+data class ApplyQuota(
+    val plan: String = "free",
+    val planLabel: String = "Free",
+    val granted: Int = 0,
+    val used: Int = 0,
+    val available: Int = 0,
+    val canApply: Boolean = true,
+    val nextRefillInSeconds: Int = 0
+)
+
+@Serializable
+data class QuotaResponse(val applies: Boolean = false, val quota: ApplyQuota? = null)
+
+@Serializable
+data class BankAccount(
+    @SerialName("account_holder") val accountHolder: String = "",
+    @SerialName("account_last4") val accountLast4: String = "",
+    val ifsc: String = "",
+    @SerialName("bank_name") val bankName: String = "",
+    val status: String = "pending"
+)
+
+@Serializable
+data class BankAccountResponse(val bankAccount: BankAccount? = null)
+
+@Serializable
+data class BankAccountRequest(
+    val accountHolder: String,
+    val accountNumber: String,
+    val ifsc: String,
+    val bankName: String = ""
+)
+
+@Serializable
+data class Settlement(
+    val id: String = "",
+    @SerialName("amount_paise") val amountPaise: Long = 0,
+    val status: String = "",
+    @SerialName("account_last4") val accountLast4: String = "",
+    @SerialName("requested_at") val requestedAt: String? = null,
+    @SerialName("processed_at") val processedAt: String? = null
+)
+
+@Serializable
+data class SettlementsResponse(
+    val settlements: List<Settlement> = emptyList(),
+    val bankAccount: BankAccount? = null
+)
+
+@Serializable
+data class SettlementRequest(val amount: String)
+
+@Serializable
+data class ProfileMediaResponse(val media: ProfileMedia = ProfileMedia())

@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -69,6 +70,17 @@ fun AccountScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
         ApiContent(loader = { graph.profile.dashboard() }) { resp ->
             val s = resp.stats
             Text("At a glance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            resp.money?.let { mny ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Wallet balance", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(formatMoney(mny.balancePaise), fontWeight = FontWeight.SemiBold,
+                        color = if (mny.balancePaise < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                }
+                if (user.isFreelancer) MoneyRow("Total earned", formatMoney(mny.totalEarnedPaise))
+                MoneyRow("Commission paid", formatMoney(mny.totalCommissionPaise))
+                MoneyRow("Plan", "${mny.plan.label} · ${mny.plan.commissionPercent}% fee")
+            }
+            resp.rating?.let { r -> MoneyRow("Your rating", "★ %.1f (%d)".format(r.average, r.count)) }
             val pairs = buildList {
                 s.projects?.let { add("Projects" to it) }
                 s.proposals?.let { add("Proposals" to it) }
@@ -84,6 +96,7 @@ fun AccountScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
             }
         }
         Spacer(Modifier.height(16.dp)); HorizontalDivider(); Spacer(Modifier.height(8.dp))
+        AccountRow("Wallet & plan") { nav.push(Screen.Wallet) }
         AccountRow("Edit profile") { nav.push(Screen.EditProfile) }
         AccountRow("Identity verification") { nav.push(Screen.Verification) }
         if (user.isFreelancer) AccountRow("Skills & Certification") { nav.push(Screen.Assessments) }
@@ -126,19 +139,93 @@ private fun AccountRow(label: String, onClick: () -> Unit) {
 }
 
 @Composable
+private fun MoneyRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
 fun EditProfileScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
     val graph = LocalGraph.current
     val scope = rememberCoroutineScope()
     val toast = rememberToaster()
+    var reload by remember { mutableStateOf(0) }
     TopBarScaffold(title = "Edit profile", onBack = { nav.pop() }) { m ->
-        ApiContent(loader = { graph.profile.profile() }, modifier = m) { resp ->
-            if (user.isClient) ClientProfileForm(resp.profile) { body ->
-                scope.launch { val r = graph.profile.saveClient(body); if (r is ApiResult.Ok) { toast("Saved"); graph.session.refresh(); nav.pop() } else if (r is ApiResult.Err) toast(r.message) }
-            } else FreelancerProfileForm(resp.profile) { body ->
-                scope.launch { val r = graph.profile.saveFreelancer(body); if (r is ApiResult.Ok) { toast("Saved"); graph.session.refresh(); nav.pop() } else if (r is ApiResult.Err) toast(r.message) }
+        ApiContent(loaderKey = reload, loader = { graph.profile.profile() }, modifier = m) { resp ->
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+                AvatarUploader(resp.media.avatar, resp.rating) { reload++ }
+                Spacer(Modifier.height(8.dp))
+                if (user.isClient) ClientProfileForm(resp.profile) { body ->
+                    scope.launch { val r = graph.profile.saveClient(body); if (r is ApiResult.Ok) { toast("Saved"); graph.session.refresh(); nav.pop() } else if (r is ApiResult.Err) toast(r.message) }
+                } else FreelancerProfileForm(resp.profile) { body ->
+                    scope.launch { val r = graph.profile.saveFreelancer(body); if (r is ApiResult.Ok) { toast("Saved"); graph.session.refresh(); nav.pop() } else if (r is ApiResult.Err) toast(r.message) }
+                }
+                Spacer(Modifier.height(16.dp))
+                ScreenshotGallery(resp.media.projects) { reload++ }
             }
         }
     }
+}
+
+/** Avatar preview + upload, plus the star rating summary. */
+@Composable
+private fun AvatarUploader(avatar: ProfileMedia?, rating: RatingSummary, onChanged: () -> Unit) {
+    val graph = LocalGraph.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val toast = rememberToaster()
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val mime = context.contentResolver.getType(uri) ?: ""
+            if (mime !in setOf("image/jpeg", "image/png", "image/webp")) { toast("Use a JPEG, PNG, or WebP image"); return@launch }
+            val bytes = withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }
+            if (bytes == null || bytes.isEmpty()) { toast("Could not read the image"); return@launch }
+            if (bytes.size > 5 * 1024 * 1024) { toast("Image too large (max 5 MB)"); return@launch }
+            when (val r = graph.profile.uploadMedia("avatar", "", bytes, mime)) {
+                is ApiResult.Ok -> { toast("Photo updated"); onChanged() }
+                is ApiResult.Err -> toast(r.message)
+            }
+        }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column {
+            OutlinedButton(onClick = { picker.launch("image/*") }) { Text(if (avatar != null) "Change photo" else "Upload photo") }
+            Text("★ %.1f (%d ratings)".format(rating.average, rating.count), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** Project/business screenshots: upload + list with delete. */
+@Composable
+private fun ScreenshotGallery(projects: List<ProfileMedia>, onChanged: () -> Unit) {
+    val graph = LocalGraph.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val toast = rememberToaster()
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val mime = context.contentResolver.getType(uri) ?: ""
+            if (mime !in setOf("image/jpeg", "image/png", "image/webp")) { toast("Use a JPEG, PNG, or WebP image"); return@launch }
+            val bytes = withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }
+            if (bytes == null || bytes.isEmpty()) { toast("Could not read the image"); return@launch }
+            if (bytes.size > 5 * 1024 * 1024) { toast("Image too large (max 5 MB)"); return@launch }
+            when (val r = graph.profile.uploadMedia("project", "", bytes, mime)) {
+                is ApiResult.Ok -> { toast("Screenshot added"); onChanged() }
+                is ApiResult.Err -> toast(r.message)
+            }
+        }
+    }
+    Text("Project screenshots (${projects.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    projects.forEach { p ->
+        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(p.caption.ifBlank { "Screenshot" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = { scope.launch { if (graph.profile.deleteMedia(p.id) is ApiResult.Ok) { toast("Removed"); onChanged() } } }) { Text("Remove") }
+        }
+    }
+    OutlinedButton(onClick = { picker.launch("image/*") }, modifier = Modifier.fillMaxWidth()) { Text("Add screenshot") }
 }
 
 @Composable
@@ -150,7 +237,9 @@ private fun ClientProfileForm(profile: Profile?, onSave: (ClientProfileRequest) 
     var location by remember { mutableStateOf(profile?.location ?: "") }
     var orgType by remember { mutableStateOf(profile?.organisationType ?: "") }
     var mobile by remember { mutableStateOf(profile?.mobileNumber ?: "") }
-    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+    var hourly by remember { mutableStateOf(profile?.hourlyRatePaise?.let { (it / 100).toString() } ?: "") }
+    val showcase = remember { mutableStateListOf<ShowcaseEntry>().also { it.addAll(profile?.showcase ?: emptyList()) } }
+    Column(Modifier.fillMaxWidth()) {
         Field("Company name", company) { company = it }
         Field("Description (20+ chars)", description, lines = 4) { description = it }
         Field("Website", website) { website = it }
@@ -158,9 +247,19 @@ private fun ClientProfileForm(profile: Profile?, onSave: (ClientProfileRequest) 
         Field("Organisation type", orgType) { orgType = it }
         Field("Location", location) { location = it }
         Field("Mobile number", mobile) { mobile = it }
+        Field("Hourly hiring budget (INR)", hourly) { hourly = it }
+        RepeatEditor(
+            heading = "Business highlights",
+            items = showcase,
+            label = { "${it.title}${if (it.description.isNotBlank()) " — ${it.description}" else ""}" },
+            fields = listOf("Title", "Description"),
+            onAdd = { vals -> if (vals[0].isNotBlank()) showcase.add(ShowcaseEntry(vals[0], vals[1])) },
+            onRemove = { showcase.removeAt(it) }
+        )
         Spacer(Modifier.height(12.dp))
         Button(enabled = company.length >= 2 && description.length >= 20, modifier = Modifier.fillMaxWidth(),
-            onClick = { onSave(ClientProfileRequest(company, description, website, title, location, orgType, mobile)) }) { Text("Save host profile") }
+            onClick = { onSave(ClientProfileRequest(company, description, website, title, location, orgType, mobile,
+                hourlyRate = hourly.ifBlank { null }, showcase = showcase.toList())) }) { Text("Save host profile") }
     }
 }
 
@@ -174,7 +273,8 @@ private fun FreelancerProfileForm(profile: Profile?, onSave: (FreelancerProfileR
     var availability by remember { mutableStateOf(profile?.availability ?: "") }
     var handle by remember { mutableStateOf(profile?.handle ?: "") }
     var isPublic by remember { mutableStateOf(profile?.isPublic ?: false) }
-    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+    val experience = remember { mutableStateListOf<ExperienceEntry>().also { it.addAll(profile?.experience ?: emptyList()) } }
+    Column(Modifier.fillMaxWidth()) {
         Field("Headline", headline) { headline = it }
         Field("Public handle", handle) { handle = it }
         Field("Skills (comma separated)", skills) { skills = it }
@@ -182,6 +282,14 @@ private fun FreelancerProfileForm(profile: Profile?, onSave: (FreelancerProfileR
         Field("Bio (20+ chars)", bio, lines = 4) { bio = it }
         Field("Location", location) { location = it }
         Field("Availability", availability) { availability = it }
+        RepeatEditor(
+            heading = "Work experience",
+            items = experience,
+            label = { "${it.title}${if (it.company.isNotBlank()) " @ ${it.company}" else ""} ${it.period}" },
+            fields = listOf("Role / title", "Company", "Period", "What you did"),
+            onAdd = { vals -> if (vals[0].isNotBlank()) experience.add(ExperienceEntry(vals[0], vals[1], vals[2], vals[3])) },
+            onRemove = { experience.removeAt(it) }
+        )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(isPublic, { isPublic = it }); Text("Show my verified profile publicly")
         }
@@ -191,10 +299,36 @@ private fun FreelancerProfileForm(profile: Profile?, onSave: (FreelancerProfileR
                 headline = headline, bio = bio,
                 skills = skills.split(",").map { it.trim() }.filter { it.isNotEmpty() },
                 hourlyRate = rate.ifBlank { null }, location = location, availability = availability,
-                handle = handle.ifBlank { null }, isPublic = isPublic
+                handle = handle.ifBlank { null }, isPublic = isPublic, experience = experience.toList()
             ))
         }) { Text("Save worker profile") }
     }
+}
+
+/** A small repeatable-list editor: shows current items with remove, plus N input
+ * fields and an Add button. */
+@Composable
+private fun <T> RepeatEditor(
+    heading: String,
+    items: List<T>,
+    label: (T) -> String,
+    fields: List<String>,
+    onAdd: (List<String>) -> Unit,
+    onRemove: (Int) -> Unit
+) {
+    val values = remember { mutableStateListOf<String>().also { repeat(fields.size) { _ -> it.add("") } } }
+    Spacer(Modifier.height(8.dp))
+    Text(heading, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+    items.forEachIndexed { i, item ->
+        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(label(item), Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = { onRemove(i) }) { Text("Remove") }
+        }
+    }
+    fields.forEachIndexed { i, f -> Field(f, values[i]) { values[i] = it } }
+    OutlinedButton(onClick = {
+        onAdd(values.toList()); for (i in values.indices) values[i] = ""
+    }, modifier = Modifier.fillMaxWidth()) { Text("Add to $heading") }
 }
 
 @Composable

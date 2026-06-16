@@ -11,6 +11,7 @@ import com.twowork.core.data.MessageRepository
 import com.twowork.core.data.ProfileRepository
 import com.twowork.core.data.ProjectRepository
 import com.twowork.core.data.SessionManager
+import com.twowork.core.data.WalletRepository
 import com.twowork.core.net.AppCookieJar
 import com.twowork.core.net.Network
 
@@ -29,6 +30,7 @@ class Graph(context: Context, debug: Boolean) {
     val profile = ProfileRepository(api)
     val assessments = AssessmentRepository(api)
     val appUpdate = AppUpdateRepository(api)
+    val wallet = WalletRepository(api)
 }
 
 val LocalGraph = staticCompositionLocalOf<Graph> { error("Graph not provided") }

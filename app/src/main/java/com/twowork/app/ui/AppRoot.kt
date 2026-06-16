@@ -46,6 +46,7 @@ sealed interface Screen {
     data object EditProfile : Screen
     data object Verification : Screen
     data object Assessments : Screen
+    data object Wallet : Screen
     data class Exam(val attemptId: String, val skill: String, val level: Int) : Screen
 }
 
@@ -128,6 +129,7 @@ private fun Home(user: User) {
             Screen.EditProfile -> EditProfileScreen(user, nav, mod)
             Screen.Verification -> VerificationScreen(user, nav, mod)
             Screen.Assessments -> AssessmentsScreen(nav, mod)
+            Screen.Wallet -> WalletScreen(user, nav, mod)
             is Screen.Exam -> ExamScreen(screen.attemptId, screen.skill, screen.level, nav, mod)
         }
     }
