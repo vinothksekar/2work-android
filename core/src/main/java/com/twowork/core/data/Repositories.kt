@@ -51,6 +51,8 @@ class ContractRepository(private val api: TwoWorkApi) {
     suspend fun rateClient(milestoneId: String, body: RatingRequest): ApiResult<Unit> = safeApi { api.rateClient(milestoneId, body); Unit }
     suspend fun cancel(contractId: String, reason: String, score: Int): ApiResult<Unit> =
         safeApi { api.cancelContract(contractId, CancelContractRequest(reason, score)); Unit }
+    suspend fun complete(contractId: String, review: String, score: Int): ApiResult<Unit> =
+        safeApi { api.completeContract(contractId, CompleteContractRequest(review, score)); Unit }
 }
 
 /** Conversations / messaging + attachments. */

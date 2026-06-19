@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -48,6 +49,7 @@ private sealed interface MsAction {
     data class RateFreelancer(val milestoneId: String) : MsAction
     data class RateClient(val milestoneId: String) : MsAction
     data class CancelContract(val contractId: String) : MsAction
+    data class CompleteContract(val contractId: String, val totalPaise: Long, val currency: String) : MsAction
 }
 
 @Composable
@@ -118,6 +120,9 @@ fun ContractsScreen(user: User, modifier: Modifier = Modifier) {
         is MsAction.CancelContract -> CancelContractDialog(a.contractId, { action = null }) {
             action = null; reload++; toast("Contract closed — feedback recorded on the freelancer")
         }
+        is MsAction.CompleteContract -> CompleteContractDialog(a.contractId, a.totalPaise, a.currency, { action = null }) {
+            action = null; reload++; toast("Freelancer paid — contract completed")
+        }
         null -> {}
     }
 }
@@ -176,10 +181,15 @@ private fun ContractCard(
         }
         if (user.isClient && contract.status == "active" && contract.milestones.all { it.status == "awaiting_funding" }) {
             Spacer(Modifier.height(4.dp))
-            OutlinedButton(
-                onClick = { onAction(MsAction.CancelContract(contract.id)) },
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-            ) { Text("Cancel & close with feedback") }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { onAction(MsAction.CompleteContract(contract.id, contract.totalPaise, contract.currency)) }) {
+                    Text("Pay & complete")
+                }
+                OutlinedButton(
+                    onClick = { onAction(MsAction.CancelContract(contract.id)) },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("Reject (no response)") }
+            }
         }
     }
 }
@@ -319,4 +329,48 @@ private fun CancelContractDialog(contractId: String, onDismiss: () -> Unit, onDo
             }) { Text("Close contract") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Keep open") } })
+}
+
+@Composable
+private fun CompleteContractDialog(
+    contractId: String, totalPaise: Long, currency: String,
+    onDismiss: () -> Unit, onDone: () -> Unit
+) {
+    val graph = LocalGraph.current
+    val scope = rememberCoroutineScope()
+    val toast = rememberToaster()
+    var score by remember { mutableIntStateOf(5) }
+    var review by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    AlertDialog(onDismissRequest = { if (!busy) onDismiss() }, title = { Text("Pay freelancer & complete") },
+        text = {
+            Column {
+                Text(
+                    "This pays the freelancer ${formatMoney(totalPaise, currency)} from your wallet, closes the contract, and records your rating on their profile. Platform commission was already charged at award.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                Text("Rating for the freelancer", style = MaterialTheme.typography.labelMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    (1..5).forEach { n ->
+                        OutlinedButton(onClick = { score = n }) { Text(if (n <= score) "★" else "☆") }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(review, { review = it }, label = { Text("Feedback (10+ chars)") },
+                    modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !busy && review.trim().length >= 10, onClick = {
+                busy = true
+                scope.launch {
+                    when (val r = graph.contracts.complete(contractId, review.trim(), score)) {
+                        is ApiResult.Ok -> onDone()
+                        is ApiResult.Err -> { busy = false; toast(r.message) }
+                    }
+                }
+            }) { Text("Pay ${formatMoney(totalPaise, currency)}") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Not yet") } })
 }

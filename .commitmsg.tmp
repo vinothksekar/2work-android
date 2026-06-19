@@ -1,0 +1,15 @@
+v1.4.0: affiliate program, social links, paid-plan payment gating
+
+- Affiliate & referrals screen: shareable link, referral list, earnings;
+  earn 10% to your wallet when a referral buys a paid plan.
+- Social profile links (LinkedIn/GitHub/Twitter/Instagram/Website) in the
+  profile editor for both roles.
+- Paid plans no longer activate by clicking — tapping Upgrade routes to an
+  online payment (server returns 402 until payments are enabled); only Free
+  switches instantly.
+
+Adds AffiliateResponse models + GET /api/affiliate + WalletRepository.affiliate,
+Screen.Affiliate + AffiliateScreen, Account row, and social fields on the
+profile request/response models.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
