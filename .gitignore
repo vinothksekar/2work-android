@@ -16,3 +16,8 @@ keystore.properties
 keystore/
 *.keystore
 *.jks
+
+# Build artifacts / transient
+*.apk
+.kotlin/
+.commitmsg.tmp
