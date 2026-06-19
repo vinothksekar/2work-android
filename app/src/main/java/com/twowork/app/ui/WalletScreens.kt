@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import com.twowork.app.RazorpayBridge
 import com.twowork.core.di.LocalGraph
 import com.twowork.core.model.*
-import kotlinx.coroutines.delay
 import com.twowork.core.net.ApiResult
 import com.twowork.core.ui.EmptyState
 import com.twowork.core.ui.ListCard
@@ -73,13 +72,13 @@ fun WalletScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
                             is ApiResult.Ok -> {
                                 val rzp = r.data.razorpay
                                 if (rzp != null) {
-                                    RazorpayBridge.launch(context as ComponentActivity, rzp, "$plan plan") { success, msg ->
+                                    RazorpayBridge.launch(context as ComponentActivity, rzp, "$plan plan") { success, paymentId ->
                                         scope.launch {
-                                            if (success) {
-                                                toast("Payment received — refreshing plan…")
-                                                delay(3000)
+                                            if (success && paymentId != null) {
+                                                graph.wallet.capturePayment(rzp.reference, paymentId, rzp.orderId)
+                                                toast("Plan activated!")
                                                 reload++
-                                            } else toast(msg ?: "Payment cancelled")
+                                            } else if (!success) toast(paymentId ?: "Payment cancelled")
                                         }
                                     }
                                 } else {
@@ -110,13 +109,13 @@ fun WalletScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
                         val rzp = r.data.razorpay
                         if (rzp != null) {
                             dialog = null
-                            RazorpayBridge.launch(context as ComponentActivity, rzp, "Wallet top-up") { success, msg ->
+                            RazorpayBridge.launch(context as ComponentActivity, rzp, "Wallet top-up") { success, paymentId ->
                                 scope.launch {
-                                    if (success) {
-                                        toast("Payment successful — refreshing balance…")
-                                        delay(3000)
+                                    if (success && paymentId != null) {
+                                        graph.wallet.capturePayment(rzp.reference, paymentId, rzp.orderId)
+                                        toast("Wallet credited!")
                                         reload++
-                                    } else toast(msg ?: "Payment cancelled")
+                                    } else if (!success) toast(paymentId ?: "Payment cancelled")
                                 }
                             }
                         } else {

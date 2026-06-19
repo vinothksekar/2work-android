@@ -98,6 +98,8 @@ class WalletRepository(private val api: TwoWorkApi) {
     suspend fun topup(amount: String): ApiResult<TopupResponse> = safeApi { api.topupWallet(TopupRequest(amount)) }
     suspend fun subscription(): ApiResult<SubscriptionResponse> = safeApi { api.subscription() }
     suspend fun subscribe(plan: String): ApiResult<SubscribeResponse> = safeApi { api.subscribe(SubscribeRequest(plan)) }
+    suspend fun capturePayment(reference: String, paymentId: String, orderId: String): ApiResult<Unit> =
+        safeApi { api.capturePayment(CaptureRequest(reference, paymentId, orderId)); Unit }
     suspend fun quota(): ApiResult<QuotaResponse> = safeApi { api.quota() }
     suspend fun bankAccount(): ApiResult<BankAccountResponse> = safeApi { api.bankAccount() }
     suspend fun saveBank(body: BankAccountRequest): ApiResult<Unit> = safeApi { api.saveBankAccount(body); Unit }

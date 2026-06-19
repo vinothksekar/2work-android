@@ -78,6 +78,9 @@ interface TwoWorkApi {
     @POST("api/subscription")
     suspend fun subscribe(@Body body: SubscribeRequest): SubscribeResponse
 
+    @POST("api/razorpay/capture")
+    suspend fun capturePayment(@Body body: CaptureRequest): JsonElement
+
     @GET("api/quota")
     suspend fun quota(): QuotaResponse
 

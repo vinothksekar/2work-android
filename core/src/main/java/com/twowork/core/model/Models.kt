@@ -436,8 +436,12 @@ data class RazorpayOrder(
     val keyId: String = "",
     val orderId: String = "",
     val amount: Long = 0,
-    val currency: String = "INR"
+    val currency: String = "INR",
+    val reference: String = ""
 )
+
+@Serializable
+data class CaptureRequest(val reference: String, val paymentId: String, val orderId: String)
 
 @Serializable
 data class FundingIntentResponse(
