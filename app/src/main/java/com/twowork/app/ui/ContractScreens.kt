@@ -25,9 +25,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.activity.ComponentActivity
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.twowork.app.RazorpayBridge
 import com.twowork.core.di.LocalGraph
 import com.twowork.core.model.*
 import com.twowork.core.net.ApiResult
@@ -52,6 +55,7 @@ fun ContractsScreen(user: User, modifier: Modifier = Modifier) {
     val graph = LocalGraph.current
     val scope = rememberCoroutineScope()
     val toast = rememberToaster()
+    val context = LocalContext.current
     var reload by remember { mutableIntStateOf(0) }
     var action by remember { mutableStateOf<MsAction?>(null) }
 
@@ -69,8 +73,17 @@ fun ContractsScreen(user: User, modifier: Modifier = Modifier) {
                                 when (val r = graph.contracts.fund(milestoneId)) {
                                     is ApiResult.Ok -> {
                                         val rzp = r.data.razorpay
-                                        toast(if (rzp != null) "Razorpay order ${rzp.orderId} created" else "Funding intent created — provider capture required")
-                                        reload++
+                                        if (rzp != null) {
+                                            RazorpayBridge.launch(context as ComponentActivity, rzp, "Milestone funding") { success, msg ->
+                                                scope.launch {
+                                                    if (success) { toast("Payment successful — milestone funded"); reload++ }
+                                                    else toast(msg ?: "Payment cancelled")
+                                                }
+                                            }
+                                        } else {
+                                            toast("Funding intent created — provider capture required")
+                                            reload++
+                                        }
                                     }
                                     is ApiResult.Err -> toast(r.message)
                                 }

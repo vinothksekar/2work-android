@@ -23,9 +23,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.activity.ComponentActivity
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.twowork.app.RazorpayBridge
 import com.twowork.core.di.LocalGraph
 import com.twowork.core.model.*
 import com.twowork.core.net.ApiResult
@@ -47,6 +50,7 @@ fun WalletScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
     val graph = LocalGraph.current
     val scope = rememberCoroutineScope()
     val toast = rememberToaster()
+    val context = LocalContext.current
     var reload by remember { mutableIntStateOf(0) }
     var dialog by remember { mutableStateOf<WalletDialog?>(null) }
 
@@ -65,9 +69,20 @@ fun WalletScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
                 item { PlanCard(sub, quota, onSubscribe = { plan ->
                     scope.launch {
                         when (val r = graph.wallet.subscribe(plan)) {
-                            is ApiResult.Ok ->
-                                if (plan == "free") { toast("Switched to Free plan"); reload++ }
-                                else toast("Paid plans activate only after an online payment.")
+                            is ApiResult.Ok -> {
+                                val rzp = r.data.razorpay
+                                if (rzp != null) {
+                                    RazorpayBridge.launch(context as ComponentActivity, rzp, "$plan plan") { success, msg ->
+                                        scope.launch {
+                                            if (success) { toast("Payment received — plan activates once confirmed"); reload++ }
+                                            else toast(msg ?: "Payment cancelled")
+                                        }
+                                    }
+                                } else {
+                                    if (plan == "free") toast("Switched to Free plan") else toast("Plan updated")
+                                    reload++
+                                }
+                            }
                             is ApiResult.Err -> toast(r.message)
                         }
                     }
@@ -82,9 +97,28 @@ fun WalletScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
 
     when (dialog) {
         WalletDialog.Topup -> AmountDialog("Add money to wallet",
-            "Demo mode credits instantly; live payments use checkout.", "Add money",
+            "Demo mode credits instantly; live payments use Razorpay checkout.", "Add money",
             onDismiss = { dialog = null }) { amount, done ->
-            scope.launch { val r = graph.wallet.topup(amount); if (r is ApiResult.Ok) { done(); dialog = null; reload++; toast("Wallet updated") } else if (r is ApiResult.Err) { done(); toast(r.message) } }
+            scope.launch {
+                when (val r = graph.wallet.topup(amount)) {
+                    is ApiResult.Ok -> {
+                        done()
+                        val rzp = r.data.razorpay
+                        if (rzp != null) {
+                            dialog = null
+                            RazorpayBridge.launch(context as ComponentActivity, rzp, "Wallet top-up") { success, msg ->
+                                scope.launch {
+                                    if (success) { toast("Payment successful — wallet will be credited"); reload++ }
+                                    else toast(msg ?: "Payment cancelled")
+                                }
+                            }
+                        } else {
+                            dialog = null; reload++; toast("Wallet updated")
+                        }
+                    }
+                    is ApiResult.Err -> { done(); toast(r.message) }
+                }
+            }
         }
         WalletDialog.Settlement -> AmountDialog("Withdraw to bank",
             "Free. Minimum ₹1,000. Requires KYC + an approved bank account.", "Request settlement",

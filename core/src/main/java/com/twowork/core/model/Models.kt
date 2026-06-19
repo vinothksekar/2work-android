@@ -764,6 +764,22 @@ data class WalletResponse(
 data class TopupRequest(val amount: String)
 
 @Serializable
+data class TopupResponse(
+    val credited: Boolean = false,
+    val pending: Boolean = false,
+    val razorpay: RazorpayOrder? = null,
+    val balancePaise: Long = 0
+)
+
+@Serializable
+data class SubscribeResponse(
+    val pending: Boolean = false,
+    val subscribed: Boolean = false,
+    val plan: String = "",
+    val razorpay: RazorpayOrder? = null
+)
+
+@Serializable
 data class SubscriptionState(
     val plan: String = "free",
     val status: String = "active",

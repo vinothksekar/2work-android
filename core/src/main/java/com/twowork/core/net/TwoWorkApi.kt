@@ -70,13 +70,13 @@ interface TwoWorkApi {
     suspend fun wallet(): WalletResponse
 
     @POST("api/wallet/topup")
-    suspend fun topupWallet(@Body body: TopupRequest): JsonElement
+    suspend fun topupWallet(@Body body: TopupRequest): TopupResponse
 
     @GET("api/subscription")
     suspend fun subscription(): SubscriptionResponse
 
     @POST("api/subscription")
-    suspend fun subscribe(@Body body: SubscribeRequest): JsonElement
+    suspend fun subscribe(@Body body: SubscribeRequest): SubscribeResponse
 
     @GET("api/quota")
     suspend fun quota(): QuotaResponse

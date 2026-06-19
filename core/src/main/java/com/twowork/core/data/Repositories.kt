@@ -95,9 +95,9 @@ class ProfileRepository(private val api: TwoWorkApi) {
 /** Wallet, plans/subscription, apply quota, bank account and settlements. */
 class WalletRepository(private val api: TwoWorkApi) {
     suspend fun wallet(): ApiResult<WalletResponse> = safeApi { api.wallet() }
-    suspend fun topup(amount: String): ApiResult<Unit> = safeApi { api.topupWallet(TopupRequest(amount)); Unit }
+    suspend fun topup(amount: String): ApiResult<TopupResponse> = safeApi { api.topupWallet(TopupRequest(amount)) }
     suspend fun subscription(): ApiResult<SubscriptionResponse> = safeApi { api.subscription() }
-    suspend fun subscribe(plan: String): ApiResult<Unit> = safeApi { api.subscribe(SubscribeRequest(plan)); Unit }
+    suspend fun subscribe(plan: String): ApiResult<SubscribeResponse> = safeApi { api.subscribe(SubscribeRequest(plan)) }
     suspend fun quota(): ApiResult<QuotaResponse> = safeApi { api.quota() }
     suspend fun bankAccount(): ApiResult<BankAccountResponse> = safeApi { api.bankAccount() }
     suspend fun saveBank(body: BankAccountRequest): ApiResult<Unit> = safeApi { api.saveBankAccount(body); Unit }
