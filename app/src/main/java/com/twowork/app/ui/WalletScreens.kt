@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.twowork.app.RazorpayBridge
 import com.twowork.core.di.LocalGraph
 import com.twowork.core.model.*
+import kotlinx.coroutines.delay
 import com.twowork.core.net.ApiResult
 import com.twowork.core.ui.EmptyState
 import com.twowork.core.ui.ListCard
@@ -74,8 +75,11 @@ fun WalletScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
                                 if (rzp != null) {
                                     RazorpayBridge.launch(context as ComponentActivity, rzp, "$plan plan") { success, msg ->
                                         scope.launch {
-                                            if (success) { toast("Payment received — plan activates once confirmed"); reload++ }
-                                            else toast(msg ?: "Payment cancelled")
+                                            if (success) {
+                                                toast("Payment received — refreshing plan…")
+                                                delay(3000)
+                                                reload++
+                                            } else toast(msg ?: "Payment cancelled")
                                         }
                                     }
                                 } else {
@@ -108,8 +112,11 @@ fun WalletScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
                             dialog = null
                             RazorpayBridge.launch(context as ComponentActivity, rzp, "Wallet top-up") { success, msg ->
                                 scope.launch {
-                                    if (success) { toast("Payment successful — wallet will be credited"); reload++ }
-                                    else toast(msg ?: "Payment cancelled")
+                                    if (success) {
+                                        toast("Payment successful — refreshing balance…")
+                                        delay(3000)
+                                        reload++
+                                    } else toast(msg ?: "Payment cancelled")
                                 }
                             }
                         } else {

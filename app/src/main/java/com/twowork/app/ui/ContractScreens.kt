@@ -35,6 +35,7 @@ import com.twowork.core.di.LocalGraph
 import com.twowork.core.model.*
 import com.twowork.core.net.ApiResult
 import com.twowork.core.ui.EmptyState
+import kotlinx.coroutines.delay
 import com.twowork.core.ui.ListCard
 import com.twowork.core.ui.StatusChip
 import com.twowork.core.ui.formatMoney
@@ -76,8 +77,11 @@ fun ContractsScreen(user: User, modifier: Modifier = Modifier) {
                                         if (rzp != null) {
                                             RazorpayBridge.launch(context as ComponentActivity, rzp, "Milestone funding") { success, msg ->
                                                 scope.launch {
-                                                    if (success) { toast("Payment successful — milestone funded"); reload++ }
-                                                    else toast(msg ?: "Payment cancelled")
+                                                    if (success) {
+                                                        toast("Payment successful — refreshing contract…")
+                                                        delay(3000)
+                                                        reload++
+                                                    } else toast(msg ?: "Payment cancelled")
                                                 }
                                             }
                                         } else {
