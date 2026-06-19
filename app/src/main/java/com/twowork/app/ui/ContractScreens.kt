@@ -1,5 +1,6 @@
 package com.twowork.app.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -29,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.twowork.app.RazorpayBridge
@@ -158,14 +160,12 @@ private fun ContractCard(
                 }
                 StatusChip(ms.status)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (user.isClient && ms.status == "awaiting_funding")
-                        OutlinedButton(onClick = { onFund(ms.id) }) { Text("Fund") }
-                    if (user.isFreelancer && (ms.status == "funded" || ms.status == "revision_requested"))
+                    // Freelancer uploads work right after award — no upfront escrow funding.
+                    if (user.isFreelancer && ms.status in listOf("awaiting_funding", "funded", "revision_requested"))
                         OutlinedButton(onClick = { onAction(MsAction.Deliver(ms.id)) }) { Text("Submit work") }
-                    if (user.isClient && ms.status == "submitted" && latestDelivery?.status == "submitted") {
-                        OutlinedButton(onClick = { onAccept(latestDelivery.id) }) { Text("Accept") }
-                        OutlinedButton(onClick = { onAction(MsAction.Revision(latestDelivery.id)) }) { Text("Revise") }
-                    }
+                    // Client reviews the work, then pays via the contract's "Pay & complete" button.
+                    if (user.isClient && ms.status == "submitted" && latestDelivery?.status == "submitted")
+                        OutlinedButton(onClick = { onAction(MsAction.Revision(latestDelivery.id)) }) { Text("Request revision") }
                     if (ms.status in listOf("funded", "submitted", "revision_requested", "accepted_pending_release"))
                         OutlinedButton(onClick = { onAction(MsAction.Dispute(ms.id)) }) { Text("Dispute") }
                     if (user.isClient && ms.status == "paid" && !rated)
@@ -174,21 +174,37 @@ private fun ContractCard(
                         OutlinedButton(onClick = { onAction(MsAction.RateClient(ms.id)) }) { Text("Rate client") }
                 }
                 latestDelivery?.let {
-                    Text("Delivery r${it.revisionNo}: ${prettyStatus(it.status)}", style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Submitted work (r${it.revisionNo})", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    if (it.summary.isNotBlank())
+                        Text(it.summary, style = MaterialTheme.typography.bodySmall)
+                    if (it.artifactUrl.isNotBlank()) {
+                        val uriHandler = LocalUriHandler.current
+                        Text("Open delivered files / link",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { runCatching { uriHandler.openUri(it.artifactUrl) } })
+                    }
+                    if (it.clientFeedback?.isNotBlank() == true)
+                        Text("Your feedback: ${it.clientFeedback}", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
-        if (user.isClient && contract.status == "active" && contract.milestones.all { it.status == "awaiting_funding" }) {
+        val escrowEngaged = contract.payments.isNotEmpty()
+        if (user.isClient && contract.status == "active" && !escrowEngaged) {
+            val noWorkYet = contract.milestones.all { it.status == "awaiting_funding" }
             Spacer(Modifier.height(4.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { onAction(MsAction.CompleteContract(contract.id, contract.totalPaise, contract.currency)) }) {
                     Text("Pay & complete")
                 }
-                OutlinedButton(
-                    onClick = { onAction(MsAction.CancelContract(contract.id)) },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { Text("Reject (no response)") }
+                if (noWorkYet) {
+                    OutlinedButton(
+                        onClick = { onAction(MsAction.CancelContract(contract.id)) },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) { Text("Reject (no response)") }
+                }
             }
         }
     }
