@@ -78,8 +78,10 @@ fun ContractsScreen(user: User, modifier: Modifier = Modifier) {
                                             RazorpayBridge.launch(context as ComponentActivity, rzp, "Milestone funding") { success, paymentId ->
                                                 scope.launch {
                                                     if (success && paymentId != null) {
-                                                        graph.wallet.capturePayment(ref, paymentId, rzp.orderId)
-                                                        toast("Milestone funded!")
+                                                        when (val cap = graph.wallet.capturePayment(ref, paymentId, rzp.orderId)) {
+                                                            is ApiResult.Ok -> toast("Milestone funded!")
+                                                            is ApiResult.Err -> toast("Payment received — ${cap.message}")
+                                                        }
                                                         reload++
                                                     } else if (!success) toast(paymentId ?: "Payment cancelled")
                                                 }

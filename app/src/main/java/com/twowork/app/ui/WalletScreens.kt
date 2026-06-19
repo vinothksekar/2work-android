@@ -75,8 +75,10 @@ fun WalletScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
                                     RazorpayBridge.launch(context as ComponentActivity, rzp, "$plan plan") { success, paymentId ->
                                         scope.launch {
                                             if (success && paymentId != null) {
-                                                graph.wallet.capturePayment(rzp.reference, paymentId, rzp.orderId)
-                                                toast("Plan activated!")
+                                                when (val cap = graph.wallet.capturePayment(rzp.reference, paymentId, rzp.orderId)) {
+                                                    is ApiResult.Ok -> toast("Plan activated!")
+                                                    is ApiResult.Err -> toast("Payment received — ${cap.message}")
+                                                }
                                                 reload++
                                             } else if (!success) toast(paymentId ?: "Payment cancelled")
                                         }
@@ -112,8 +114,10 @@ fun WalletScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
                             RazorpayBridge.launch(context as ComponentActivity, rzp, "Wallet top-up") { success, paymentId ->
                                 scope.launch {
                                     if (success && paymentId != null) {
-                                        graph.wallet.capturePayment(rzp.reference, paymentId, rzp.orderId)
-                                        toast("Wallet credited!")
+                                        when (val cap = graph.wallet.capturePayment(rzp.reference, paymentId, rzp.orderId)) {
+                                            is ApiResult.Ok -> toast("Wallet credited!")
+                                            is ApiResult.Err -> toast("Payment received — ${cap.message}")
+                                        }
                                         reload++
                                     } else if (!success) toast(paymentId ?: "Payment cancelled")
                                 }
