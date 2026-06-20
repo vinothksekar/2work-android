@@ -113,6 +113,7 @@ private fun TalentList(user: User) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var inviteHandle by remember { mutableStateOf<String?>(null) }
+    val toast = rememberToaster()
 
     fun load() {
         scope.launch {
@@ -129,7 +130,20 @@ private fun TalentList(user: User) {
     SearchBar(query, { query = it }, onSearch = { load() })
     LazyColumn(Modifier.fillMaxWidth()) {
         items(items, key = { it.handle ?: it.fullName }) { f ->
-            FreelancerCard(f, canInvite = user.isClient && f.handle != null, onInvite = { inviteHandle = f.handle })
+            FreelancerCard(
+                f,
+                canInvite = user.isClient && f.handle != null,
+                onInvite = { inviteHandle = f.handle },
+                canSave = f.handle != null,
+                onSave = {
+                    scope.launch {
+                        when (val r = graph.messages.addContact(handle = f.handle)) {
+                            is ApiResult.Ok -> toast("Saved to your contacts")
+                            is ApiResult.Err -> toast(r.message)
+                        }
+                    }
+                }
+            )
         }
         item {
             when {
@@ -189,7 +203,10 @@ fun ProjectCard(project: Project, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun FreelancerCard(freelancer: Freelancer, canInvite: Boolean, onInvite: () -> Unit) {
+private fun FreelancerCard(
+    freelancer: Freelancer, canInvite: Boolean, onInvite: () -> Unit,
+    canSave: Boolean = false, onSave: () -> Unit = {}
+) {
     ListCard {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(freelancer.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -207,9 +224,12 @@ private fun FreelancerCard(freelancer: Freelancer, canInvite: Boolean, onInvite:
             Text("✓ Certified", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             TagRow(freelancer.badges.map { "${it.skill} · L${it.level}" })
         }
-        if (canInvite) {
+        if (canInvite || canSave) {
             Spacer(Modifier.height(8.dp))
-            androidx.compose.material3.OutlinedButton(onClick = onInvite) { Text("Invite to project") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (canInvite) androidx.compose.material3.OutlinedButton(onClick = onInvite) { Text("Invite to project") }
+                if (canSave) androidx.compose.material3.OutlinedButton(onClick = onSave) { Text("Save contact") }
+            }
         }
     }
 }

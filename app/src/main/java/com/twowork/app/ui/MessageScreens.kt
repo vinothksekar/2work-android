@@ -19,10 +19,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,6 +33,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -45,6 +49,7 @@ import com.twowork.core.di.LocalGraph
 import com.twowork.core.model.Attachment
 import com.twowork.core.model.Conversation
 import com.twowork.core.model.Message
+import com.twowork.core.model.User
 import com.twowork.core.net.ApiResult
 import com.twowork.core.ui.EllipsisText
 import com.twowork.core.ui.EmptyState
@@ -55,6 +60,75 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+
+@Composable
+fun ContactsScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
+    val graph = LocalGraph.current
+    val scope = rememberCoroutineScope()
+    val toast = rememberToaster()
+    var reload by remember { mutableIntStateOf(0) }
+    var handle by remember { mutableStateOf("") }
+
+    TopBarScaffold(title = "My contacts", onBack = { nav.pop() }) { m ->
+        Column(m.fillMaxWidth().padding(16.dp)) {
+            Text(
+                "Save people to work with again. Clients can message saved freelancers anytime; freelancers get notified when a saved client posts a project.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(handle, { handle = it }, label = { Text("Add freelancer by @handle") },
+                    singleLine = true, modifier = Modifier.weight(1f))
+                Button(enabled = handle.trim().isNotEmpty(), onClick = {
+                    val h = handle.trim().removePrefix("@")
+                    scope.launch {
+                        when (val r = graph.messages.addContact(handle = h)) {
+                            is ApiResult.Ok -> { handle = ""; toast("Contact added"); reload++ }
+                            is ApiResult.Err -> toast(r.message)
+                        }
+                    }
+                }) { Text("Add") }
+            }
+            Spacer(Modifier.height(8.dp))
+            ApiContent(loaderKey = reload, loader = { graph.messages.contacts() }) { resp ->
+                if (resp.contacts.isEmpty()) EmptyState("No contacts yet. Add a freelancer by @handle, or tap Save on a talent card.")
+                else LazyColumn {
+                    items(resp.contacts, key = { it.contactId }) { c ->
+                        ListCard {
+                            Text(c.fullName.ifBlank { "User" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(listOfNotNull(c.role.ifBlank { null }, c.handle?.let { "@$it" }).joinToString(" · "),
+                                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            c.headline?.let { if (it.isNotBlank()) Text(it, style = MaterialTheme.typography.bodySmall) }
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = {
+                                    scope.launch {
+                                        when (val r = graph.messages.openContactThread(c.contactId)) {
+                                            is ApiResult.Ok -> nav.push(Screen.Thread(Conversation(
+                                                id = r.data,
+                                                clientName = if (user.isClient) user.fullName else c.fullName,
+                                                freelancerName = if (user.isClient) c.fullName else user.fullName
+                                            )))
+                                            is ApiResult.Err -> toast(r.message)
+                                        }
+                                    }
+                                }) { Text("Message") }
+                                OutlinedButton(
+                                    onClick = {
+                                        scope.launch {
+                                            if (graph.messages.removeContact(c.contactId) is ApiResult.Ok) { toast("Removed"); reload++ }
+                                        }
+                                    },
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                ) { Text("Remove") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun ConversationsScreen(nav: Nav, modifier: Modifier = Modifier) {

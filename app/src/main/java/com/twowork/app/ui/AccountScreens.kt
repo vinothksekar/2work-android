@@ -102,6 +102,7 @@ fun AccountScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
         AccountRow("Identity verification") { nav.push(Screen.Verification) }
         if (user.isFreelancer) AccountRow("Skills & Certification") { nav.push(Screen.Assessments) }
         if (user.isAdmin) AccountRow("Admin tools (wallet / users / exams)") { nav.push(Screen.AdminExtras) }
+        AccountRow("My contacts") { nav.push(Screen.Contacts) }
         AccountRow("Notifications") { nav.push(Screen.Notifications) }
         if (user.isFreelancer) AccountRow("Invitations") { nav.push(Screen.Invitations) }
         AccountRow(if (checkingUpdate) "Checking for updates…" else "Check for updates") {

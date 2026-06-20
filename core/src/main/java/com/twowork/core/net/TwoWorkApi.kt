@@ -217,6 +217,19 @@ interface TwoWorkApi {
     @POST("api/proposals/{id}/conversation")
     suspend fun openConversation(@Path("id") id: String, @Body body: EmptyBody = EmptyBody()): OpenConversationResponse
 
+    // ---- Contacts (address book) ----
+    @GET("api/contacts")
+    suspend fun contacts(): ContactsResponse
+
+    @POST("api/contacts")
+    suspend fun addContact(@Body body: AddContactRequest): JsonElement
+
+    @DELETE("api/contacts/{id}")
+    suspend fun removeContact(@Path("id") id: String): JsonElement
+
+    @POST("api/contacts/{id}/conversation")
+    suspend fun contactConversation(@Path("id") id: String, @Body body: EmptyBody = EmptyBody()): ThreadIdResponse
+
     // ---- Attachments ----
     @POST("api/attachments")
     suspend fun uploadAttachment(@Query("name") name: String, @Body file: RequestBody): AttachmentUploadResponse

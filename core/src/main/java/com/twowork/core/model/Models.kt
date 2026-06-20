@@ -656,6 +656,25 @@ data class AttachmentUploadResponse(val attachment: Attachment)
 data class ConversationRef(val id: String)
 
 @Serializable
+data class Contact(
+    @SerialName("contact_id") val contactId: String = "",
+    @SerialName("full_name") val fullName: String = "",
+    val role: String = "",
+    val handle: String? = null,
+    val headline: String? = null,
+    @SerialName("thread_id") val threadId: String? = null
+)
+
+@Serializable
+data class ContactsResponse(val contacts: List<Contact> = emptyList())
+
+@Serializable
+data class AddContactRequest(val contactId: String? = null, val handle: String? = null)
+
+@Serializable
+data class ThreadIdResponse(val threadId: String = "")
+
+@Serializable
 data class OpenConversationResponse(val thread: ConversationRef)
 
 // ---------------------------------------------------------------------------

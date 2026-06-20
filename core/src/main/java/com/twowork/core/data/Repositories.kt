@@ -64,6 +64,12 @@ class MessageRepository(private val api: TwoWorkApi) {
         safeApi { api.sendMessage(threadId, MessageRequest(message = text, attachmentIds = attachmentIds)); Unit }
     suspend fun openConversation(proposalId: String): ApiResult<String> =
         safeApi { api.openConversation(proposalId).thread.id }
+    suspend fun contacts(): ApiResult<ContactsResponse> = safeApi { api.contacts() }
+    suspend fun addContact(handle: String? = null, contactId: String? = null): ApiResult<Unit> =
+        safeApi { api.addContact(AddContactRequest(contactId, handle)); Unit }
+    suspend fun removeContact(id: String): ApiResult<Unit> = safeApi { api.removeContact(id); Unit }
+    suspend fun openContactThread(contactId: String): ApiResult<String> =
+        safeApi { api.contactConversation(contactId).threadId }
     suspend fun uploadAttachment(bytes: ByteArray, mime: String, fileName: String): ApiResult<Attachment> =
         safeApi { api.uploadAttachment(fileName, bytes.toRequestBody(mime.toMediaTypeOrNull())).attachment }
     suspend fun downloadAttachment(id: String): ApiResult<ByteArray> =
