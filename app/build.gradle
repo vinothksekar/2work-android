@@ -18,8 +18,8 @@ android {
         applicationId "com.twowork.app"
         minSdk 24
         targetSdk 35
-        versionCode 20
-        versionName "1.12.3"
+        versionCode 21
+        versionName "1.13.0"
     }
 
     signingConfigs {
@@ -62,4 +62,5 @@ android {
 dependencies {
     implementation project(":core")
     implementation "com.razorpay:checkout:1.6.33"
+    implementation "io.livekit:livekit-android:2.11.0"
 }

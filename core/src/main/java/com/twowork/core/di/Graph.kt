@@ -5,6 +5,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.twowork.core.data.AdminExtrasRepository
 import com.twowork.core.data.AppUpdateRepository
 import com.twowork.core.data.AssessmentRepository
+import com.twowork.core.data.CallRepository
 import com.twowork.core.data.CategoryRepository
 import com.twowork.core.data.CertificateRepository
 import com.twowork.core.data.ContractRepository
@@ -29,6 +30,7 @@ class Graph(context: Context, debug: Boolean) {
     val projects = ProjectRepository(api)
     val contracts = ContractRepository(api)
     val messages = MessageRepository(api)
+    val calls = CallRepository(api)
     val engagement = EngagementRepository(api)
     val profile = ProfileRepository(api)
     val assessments = AssessmentRepository(api)

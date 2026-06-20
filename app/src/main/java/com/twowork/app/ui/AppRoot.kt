@@ -163,4 +163,5 @@ private fun Home(user: User) {
             is Screen.Exam -> ExamScreen(screen.attemptId, screen.skill, screen.level, nav, mod)
         }
     }
+    CallLayer()
 }

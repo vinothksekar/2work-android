@@ -682,6 +682,32 @@ data class AddContactRequest(val contactId: String? = null, val handle: String? 
 @Serializable
 data class ThreadIdResponse(val threadId: String = "")
 
+// ---- Audio calls (LiveKit) ----
+@Serializable
+data class CallStartRequest(val contactId: String)
+
+@Serializable
+data class CallStartResponse(
+    val sessionId: String = "",
+    val room: String = "",
+    val url: String = "",
+    val token: String = "",
+    val calleeName: String = ""
+)
+
+@Serializable
+data class IncomingCall(
+    val id: String = "",
+    val room: String = "",
+    @SerialName("caller_name") val callerName: String = ""
+)
+
+@Serializable
+data class IncomingCallResponse(val incoming: IncomingCall? = null)
+
+@Serializable
+data class CallAcceptResponse(val room: String = "", val url: String = "", val token: String = "")
+
 @Serializable
 data class OpenConversationResponse(val thread: ConversationRef)
 

@@ -64,10 +64,22 @@ import java.io.File
 @Composable
 fun ContactsScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
     val graph = LocalGraph.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val toast = rememberToaster()
     var reload by remember { mutableIntStateOf(0) }
     var handle by remember { mutableStateOf("") }
+    var pendingCall by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        pendingCall?.let { (id, name) ->
+            if (granted) CallManager.start(id, name) else toast("Microphone permission is required for calls")
+        }
+        pendingCall = null
+    }
+    fun callContact(id: String, name: String) {
+        if (hasMicPermission(context)) CallManager.start(id, name)
+        else { pendingCall = id to name; micLauncher.launch(android.Manifest.permission.RECORD_AUDIO) }
+    }
 
     TopBarScaffold(title = "My contacts", onBack = { nav.pop() }) { m ->
         Column(m.fillMaxWidth().padding(16.dp)) {
@@ -119,6 +131,7 @@ fun ContactsScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
                                         }
                                     }
                                 }) { Text("Message") }
+                                OutlinedButton(onClick = { callContact(c.contactId, c.fullName.ifBlank { "User" }) }) { Text("📞 Call") }
                                 OutlinedButton(
                                     onClick = {
                                         scope.launch {

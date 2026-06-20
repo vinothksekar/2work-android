@@ -76,6 +76,15 @@ class MessageRepository(private val api: TwoWorkApi) {
         safeApi { api.downloadAttachment(id).bytes() }
 }
 
+/** Audio calls (LiveKit signaling). */
+class CallRepository(private val api: TwoWorkApi) {
+    suspend fun start(contactId: String): ApiResult<CallStartResponse> = safeApi { api.startCall(CallStartRequest(contactId)) }
+    suspend fun incoming(): ApiResult<IncomingCallResponse> = safeApi { api.incomingCall() }
+    suspend fun accept(id: String): ApiResult<CallAcceptResponse> = safeApi { api.acceptCall(id) }
+    suspend fun decline(id: String): ApiResult<Unit> = safeApi { api.declineCall(id); Unit }
+    suspend fun end(id: String): ApiResult<Unit> = safeApi { api.endCall(id); Unit }
+}
+
 /** Notifications + invitations + reports. */
 class EngagementRepository(private val api: TwoWorkApi) {
     suspend fun notifications(): ApiResult<NotificationFeed> = safeApi { api.notifications() }

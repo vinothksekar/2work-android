@@ -230,6 +230,22 @@ interface TwoWorkApi {
     @POST("api/contacts/{id}/conversation")
     suspend fun contactConversation(@Path("id") id: String, @Body body: EmptyBody = EmptyBody()): ThreadIdResponse
 
+    // ---- Audio calls ----
+    @POST("api/calls/start")
+    suspend fun startCall(@Body body: CallStartRequest): CallStartResponse
+
+    @GET("api/calls/incoming")
+    suspend fun incomingCall(): IncomingCallResponse
+
+    @POST("api/calls/{id}/accept")
+    suspend fun acceptCall(@Path("id") id: String, @Body body: EmptyBody = EmptyBody()): CallAcceptResponse
+
+    @POST("api/calls/{id}/decline")
+    suspend fun declineCall(@Path("id") id: String, @Body body: EmptyBody = EmptyBody()): JsonElement
+
+    @POST("api/calls/{id}/end")
+    suspend fun endCall(@Path("id") id: String, @Body body: EmptyBody = EmptyBody()): JsonElement
+
     // ---- Attachments ----
     @POST("api/attachments")
     suspend fun uploadAttachment(@Query("name") name: String, @Body file: RequestBody): AttachmentUploadResponse
