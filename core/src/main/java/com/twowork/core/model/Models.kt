@@ -614,8 +614,12 @@ data class Conversation(
     @SerialName("project_id") val projectId: String? = null,
     @SerialName("project_title") val projectTitle: String? = null,
     @SerialName("is_sealed") val isSealed: Boolean = false,
+    @SerialName("client_id") val clientId: String? = null,
+    @SerialName("freelancer_id") val freelancerId: String? = null,
     @SerialName("client_name") val clientName: String? = null,
     @SerialName("freelancer_name") val freelancerName: String? = null,
+    @SerialName("client_handle") val clientHandle: String? = null,
+    @SerialName("freelancer_handle") val freelancerHandle: String? = null,
     @SerialName("latest_message") val latestMessage: String? = null,
     val status: String = "open"
 )

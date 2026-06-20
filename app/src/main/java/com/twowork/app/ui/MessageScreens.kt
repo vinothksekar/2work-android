@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -179,12 +180,32 @@ fun ThreadScreen(conversation: Conversation, nav: Nav, modifier: Modifier = Modi
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val toast = rememberToaster()
+    val me by graph.session.me.collectAsState()
+    var thread by remember { mutableStateOf(conversation) }
     var messages by remember { mutableStateOf<List<Message>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var draft by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
     var pickedIds by remember { mutableStateOf<List<String>>(emptyList()) }
     var pickedNames by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    // The person on the other side of this conversation (for the handle + call button).
+    val amClient = thread.clientId?.let { it == me?.id } ?: (me?.isClient == true)
+    val peerId = if (amClient) thread.freelancerId else thread.clientId
+    val peerName = (if (amClient) thread.freelancerName else thread.clientName)?.ifBlank { null } ?: "User"
+    val peerHandle = if (amClient) thread.freelancerHandle else thread.clientHandle
+    var pendingCall by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        pendingCall?.let { (id, name) ->
+            if (granted) CallManager.start(id, name) else toast("Microphone permission is required for calls")
+        }
+        pendingCall = null
+    }
+    fun callPeer() {
+        val id = peerId ?: return toast("This person can't be called")
+        if (hasMicPermission(context)) CallManager.start(id, peerName)
+        else { pendingCall = id to peerName; micLauncher.launch(android.Manifest.permission.RECORD_AUDIO) }
+    }
 
     fun mergeNew(incoming: List<Message>) {
         if (incoming.isEmpty()) return
@@ -195,7 +216,7 @@ fun ThreadScreen(conversation: Conversation, nav: Nav, modifier: Modifier = Modi
     // Initial load, then poll every 4s for new messages (lightweight "live" chat).
     LaunchedEffect(conversation.id) {
         when (val r = graph.messages.messages(conversation.id)) {
-            is ApiResult.Ok -> messages = r.data.messages
+            is ApiResult.Ok -> { messages = r.data.messages; r.data.thread?.let { thread = it } }
             is ApiResult.Err -> toast(r.message)
         }
         loading = false
@@ -241,8 +262,22 @@ fun ThreadScreen(conversation: Conversation, nav: Nav, modifier: Modifier = Modi
         }
     }
 
-    TopBarScaffold(title = conversation.projectTitle ?: "Messages", onBack = { nav.pop() }) { m ->
+    TopBarScaffold(title = thread.projectTitle ?: "Messages", onBack = { nav.pop() }) { m ->
         Column(m.fillMaxSize()) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(peerName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    peerHandle?.let {
+                        Text("@$it", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                if (peerId != null) {
+                    OutlinedButton(onClick = { callPeer() }) { Text("📞 Call") }
+                }
+            }
             when {
                 loading -> Column(Modifier.fillMaxSize().weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Spacer(Modifier.height(40.dp)); CircularProgressIndicator()
