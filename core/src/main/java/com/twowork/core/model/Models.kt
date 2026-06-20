@@ -517,7 +517,11 @@ data class AttemptQuestionsResponse(
 )
 
 @Serializable
-data class SubmitAnswersRequest(val answers: Map<String, String>, val forfeited: Boolean = false)
+data class SubmitAnswersRequest(
+    val answers: Map<String, String>,
+    val forfeited: Boolean = false,
+    val proctoringViolations: Int = 0
+)
 
 @Serializable
 data class SkillCertificate(
@@ -540,7 +544,10 @@ data class SubmitResultResponse(
     val total: Int = 0,
     val badge: SkillBadge? = null,
     val certificate: SkillCertificate? = null,
-    val reason: String? = null
+    val reason: String? = null,
+    val inReview: Boolean = false,
+    val provisionalPassed: Boolean = false,
+    val violations: Int = 0
 )
 
 // ---- Categories ----

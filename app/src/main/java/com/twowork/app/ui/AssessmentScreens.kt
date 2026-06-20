@@ -193,7 +193,7 @@ fun ExamScreen(attemptId: String, skill: String, level: Int, nav: Nav, modifier:
     suspend fun finish(forfeited: Boolean) {
         if (submitting || finished) return
         submitting = true
-        when (val r = graph.assessments.submit(attemptId, answers, forfeited)) {
+        when (val r = graph.assessments.submit(attemptId, answers, forfeited, proctoringViolations = warnings)) {
             is ApiResult.Ok -> { result = r.data; graph.session.refresh() }
             is ApiResult.Err -> { toast(r.message); submitting = false }
         }
@@ -207,10 +207,11 @@ fun ExamScreen(attemptId: String, skill: String, level: Int, nav: Nav, modifier:
         onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
     }
 
-    // App-switch / background warns the first few times (an accidental switch
-    // shouldn't end the exam), but leaving MORE THAN MAX_LEAVES times auto-closes
-    // it. The timer keeps running server-side, so you can't gain time either way.
-    val maxLeaves = 3
+    // App-switch / background warns each time and is counted. The count is sent
+    // on submit: up to REVIEW_THRESHOLD events auto-validate; more than that holds
+    // the result for admin review (the exam is NOT force-closed). The timer keeps
+    // running server-side, so you can't gain time either way.
+    val reviewThreshold = 5
     DisposableEffect(lifecycleOwner) {
         var leftDuringExam = false
         val observer = LifecycleEventObserver { _, event ->
@@ -219,12 +220,10 @@ fun ExamScreen(attemptId: String, skill: String, level: Int, nav: Nav, modifier:
                 Lifecycle.Event.ON_RESUME -> if (leftDuringExam && !finished) {
                     leftDuringExam = false
                     warnings += 1
-                    if (warnings > maxLeaves) {
-                        toast("Exam closed — you left more than $maxLeaves times.")
-                        scope.launch { finish(forfeited = true) }
+                    if (warnings > reviewThreshold) {
+                        toast("Proctoring flagged ($warnings events) — your result will be held for admin review.")
                     } else {
-                        val left = maxLeaves - warnings
-                        toast("Warning $warnings/$maxLeaves — leaving again ends the exam ($left left)")
+                        toast("Proctoring warning $warnings — please don't leave the exam.")
                     }
                 }
                 else -> {}
@@ -267,7 +266,7 @@ fun ExamScreen(attemptId: String, skill: String, level: Int, nav: Nav, modifier:
                     Surface(color = if (danger) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
                         shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth()) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Q ${index + 1}/${questions.size}" + if (warnings > 0) "  ⚠ $warnings/$maxLeaves" else "", fontWeight = FontWeight.SemiBold)
+                            Text("Q ${index + 1}/${questions.size}" + if (warnings > 0) "  ⚠ $warnings" else "", fontWeight = FontWeight.SemiBold)
                             Text("⏱ ${remaining / 60}:${(remaining % 60).toString().padStart(2, '0')}", fontWeight = FontWeight.Bold)
                         }
                     }
@@ -318,17 +317,23 @@ private fun ResultView(result: SubmitResultResponse, skill: String, level: Int, 
         verticalArrangement = Arrangement.Center
     ) {
         val title = when {
+            result.inReview -> "⏳ Under review"
             result.passed -> "🏅 Passed!"
             result.reason == "forfeited" -> "Exam ended"
             result.reason == "timed_out" -> "Time's up"
             else -> "Not passed yet"
         }
         Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
-            color = if (result.passed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+            color = if (result.passed && !result.inReview) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
         Spacer(Modifier.height(8.dp))
         Text("Score: ${result.score} / ${result.total}", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(12.dp))
         when {
+            result.inReview -> Text(
+                "Your exam was flagged by proctoring (${result.violations} events), so the result is held for admin review. " +
+                    "Provisional result: ${if (result.provisionalPassed) "pass" else "fail"}. " +
+                    "You'll be notified once an admin approves it — your certificate is issued only after approval.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             result.passed && result.badge != null -> {
                 Pill("${result.badge!!.skill} · Level ${result.badge!!.level}")
                 Spacer(Modifier.height(8.dp))

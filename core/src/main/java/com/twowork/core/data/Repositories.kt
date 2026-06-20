@@ -131,8 +131,8 @@ class AssessmentRepository(private val api: TwoWorkApi) {
     suspend fun available(): ApiResult<AssessmentsResponse> = safeApi { api.assessmentsAvailable() }
     suspend fun start(skill: String, level: Int): ApiResult<StartAttemptResponse> = safeApi { api.startAssessment(skill, level) }
     suspend fun questions(attemptId: String): ApiResult<AttemptQuestionsResponse> = safeApi { api.attemptQuestions(attemptId) }
-    suspend fun submit(attemptId: String, answers: Map<String, String>, forfeited: Boolean = false): ApiResult<SubmitResultResponse> =
-        safeApi { api.submitAttempt(attemptId, SubmitAnswersRequest(answers, forfeited)) }
+    suspend fun submit(attemptId: String, answers: Map<String, String>, forfeited: Boolean = false, proctoringViolations: Int = 0): ApiResult<SubmitResultResponse> =
+        safeApi { api.submitAttempt(attemptId, SubmitAnswersRequest(answers, forfeited, proctoringViolations)) }
 }
 
 /** Self-hosted in-app update manifest (app/android-latest.json on the server). */
