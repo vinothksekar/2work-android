@@ -105,7 +105,7 @@ fun AccountScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
         AccountRow("My contacts") { nav.push(Screen.Contacts) }
         AccountRow("Notifications") { nav.push(Screen.Notifications) }
         if (user.isFreelancer) AccountRow("Invitations") { nav.push(Screen.Invitations) }
-        AccountRow(if (checkingUpdate) "Checking for updates…" else "Check for updates") {
+        AccountRow(if (checkingUpdate) "Checking for updates…" else "Check for updates · v${AppUpdater.currentVersionName(context)}") {
             if (!checkingUpdate) {
                 checkingUpdate = true
                 scope.launch {
@@ -121,6 +121,14 @@ fun AccountScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
         }
         Spacer(Modifier.height(16.dp))
         OutlinedButton(onClick = { scope.launch { graph.session.logout() } }, modifier = Modifier.fillMaxWidth()) { Text("Sign out") }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "2Work · v${AppUpdater.currentVersionName(context)} (build ${AppUpdater.currentVersionCode(context)})",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
         manualUpdate?.let { info ->
             UpdateDialog(info, manualDownloading, onUpdate = {
                 manualDownloading = true

@@ -43,6 +43,10 @@ object AppUpdater {
         else @Suppress("DEPRECATION") info.versionCode
     }
 
+    fun currentVersionName(context: Context): String =
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
+            .getOrNull() ?: "?"
+
     fun isUpdateAvailable(context: Context, info: UpdateInfo): Boolean =
         info.versionCode > currentVersionCode(context) && info.apkUrl.isNotBlank()
 
