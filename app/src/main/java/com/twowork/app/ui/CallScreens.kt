@@ -6,6 +6,9 @@ import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -16,7 +19,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.twowork.core.di.Graph
 import com.twowork.core.di.LocalGraph
@@ -35,7 +44,7 @@ sealed interface CallUi {
     data object Idle : CallUi
     data class Outgoing(val name: String) : CallUi
     data class Incoming(val id: String, val name: String) : CallUi
-    data class Active(val name: String, val muted: Boolean) : CallUi
+    data class Active(val name: String, val muted: Boolean, val connectedAtMs: Long) : CallUi
 }
 
 /** Holds the single active call + LiveKit room. Driven by CallLayer + Call buttons. */
@@ -110,7 +119,7 @@ object CallManager {
             r.connect(url, token)
             r.localParticipant.setMicrophoneEnabled(true)
             muted = false
-            state.value = CallUi.Active(name, false)
+            state.value = CallUi.Active(name, false, System.currentTimeMillis())
         } catch (e: Exception) {
             toast(e.message ?: "Call failed to connect")
             reset()
@@ -153,7 +162,7 @@ fun CallLayer() {
 
     when (val s = state) {
         is CallUi.Outgoing -> CallOverlay("Calling ${s.name}…", muted = false, showMute = false, onMute = {}, onHang = { CallManager.hangUp() })
-        is CallUi.Active -> CallOverlay("In call · ${s.name}", muted = s.muted, showMute = true, onMute = { CallManager.toggleMute() }, onHang = { CallManager.hangUp() })
+        is CallUi.Active -> CallOverlay("In call · ${s.name}", muted = s.muted, showMute = true, connectedAtMs = s.connectedAtMs, onMute = { CallManager.toggleMute() }, onHang = { CallManager.hangUp() })
         is CallUi.Incoming -> AlertDialog(
             onDismissRequest = {},
             title = { Text("Incoming call") },
@@ -172,12 +181,43 @@ fun CallLayer() {
     }
 }
 
+private fun formatCallDuration(ms: Long): String {
+    val total = (ms / 1000).coerceAtLeast(0)
+    val h = total / 3600
+    val m = (total % 3600) / 60
+    val s = total % 60
+    return if (h > 0) "%02d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
+}
+
 @Composable
-private fun CallOverlay(title: String, muted: Boolean, showMute: Boolean, onMute: () -> Unit, onHang: () -> Unit) {
+private fun CallOverlay(
+    title: String,
+    muted: Boolean,
+    showMute: Boolean,
+    connectedAtMs: Long? = null,
+    onMute: () -> Unit,
+    onHang: () -> Unit
+) {
     AlertDialog(
         onDismissRequest = {},
         title = { Text("📞 Audio call") },
-        text = { Text(title) },
+        text = {
+            Column {
+                Text(title)
+                if (connectedAtMs != null) {
+                    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+                    LaunchedEffect(connectedAtMs) {
+                        while (true) { now = System.currentTimeMillis(); delay(1000) }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        formatCallDuration(now - connectedAtMs),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        },
         confirmButton = {
             Button(onClick = onHang, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Hang up") }
         },
