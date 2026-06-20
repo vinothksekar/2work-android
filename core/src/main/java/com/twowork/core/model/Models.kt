@@ -783,6 +783,9 @@ data class SubscribeResponse(
     val pending: Boolean = false,
     val subscribed: Boolean = false,
     val plan: String = "",
+    val method: String = "",
+    val isUpgrade: Boolean = false,
+    val chargePaise: Long = 0,
     val razorpay: RazorpayOrder? = null
 )
 
@@ -801,7 +804,7 @@ data class SubscriptionResponse(
 )
 
 @Serializable
-data class SubscribeRequest(val plan: String)
+data class SubscribeRequest(val plan: String, val method: String? = null)
 
 @Serializable
 data class ApplyQuota(

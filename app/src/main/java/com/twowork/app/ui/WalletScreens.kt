@@ -2,10 +2,15 @@ package com.twowork.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -64,11 +69,15 @@ fun WalletScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
                 (graph.wallet.settlements() as? ApiResult.Ok)?.let { settle = it.data }
                 if (user.isFreelancer) (graph.wallet.quota() as? ApiResult.Ok)?.let { quota = it.data.quota }
             }
-            LazyColumn(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyColumn(
+                Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = WindowInsets.navigationBars.asPaddingValues()
+            ) {
                 item { BalanceCard(wallet, onTopup = { dialog = WalletDialog.Topup }, onWithdraw = { dialog = WalletDialog.Settlement }) }
-                item { PlanCard(sub, quota, onSubscribe = { plan ->
+                item { PlanCard(sub, quota, wallet.wallet.balancePaise, onSubscribe = { plan, method ->
                     scope.launch {
-                        when (val r = graph.wallet.subscribe(plan)) {
+                        when (val r = graph.wallet.subscribe(plan, method)) {
                             is ApiResult.Ok -> {
                                 val rzp = r.data.razorpay
                                 if (rzp != null) {
@@ -84,7 +93,11 @@ fun WalletScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
                                         }
                                     }
                                 } else {
-                                    if (plan == "free") toast("Switched to Free plan") else toast("Plan updated")
+                                    when {
+                                        plan == "free" -> toast("Switched to Free plan")
+                                        r.data.method == "wallet" -> toast(if (r.data.isUpgrade) "Plan upgraded from wallet" else "Plan activated from wallet")
+                                        else -> toast("Plan updated")
+                                    }
                                     reload++
                                 }
                             }
@@ -175,12 +188,25 @@ private fun MiniStat(label: String, value: String) {
     }
 }
 
+private val PLAN_RANK = mapOf("free" to 0, "elite" to 1, "premium" to 2)
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PlanCard(sub: SubscriptionResponse?, quota: ApplyQuota?, onSubscribe: (String) -> Unit) {
+private fun PlanCard(
+    sub: SubscriptionResponse?, quota: ApplyQuota?, walletPaise: Long,
+    onSubscribe: (plan: String, method: String?) -> Unit
+) {
     ListCard {
         Text("Subscription plan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         val active = sub?.activePlan
-        Text("Current: ${active?.label ?: "Free"} · ${active?.commissionPercent ?: 10.0}% commission",
+        val activeId = active?.id ?: "free"
+        val endIso = sub?.subscription?.currentPeriodEnd
+        val endMs = endIso?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+        val now = System.currentTimeMillis()
+        val stillActive = activeId != "free" && endMs != null && endMs > now
+        val activePrice = sub?.plans?.find { it.id == activeId }?.pricePaise ?: 0L
+        Text("Current: ${active?.label ?: "Free"} · ${active?.commissionPercent ?: 10.0}% commission" +
+            (if (stillActive && endIso != null) " · until ${endIso.take(10)}" else ""),
             style = MaterialTheme.typography.bodyMedium)
         quota?.let {
             Text("Applies left today: ${it.available} of ${it.granted} (${it.planLabel})",
@@ -188,16 +214,40 @@ private fun PlanCard(sub: SubscriptionResponse?, quota: ApplyQuota?, onSubscribe
         }
         Spacer(Modifier.height(8.dp))
         (sub?.plans ?: emptyList()).forEach { plan ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("${plan.label} · ${if (plan.pricePaise > 0) formatMoney(plan.pricePaise) + "/mo" else "Free"}",
-                        fontWeight = FontWeight.SemiBold)
-                    Text("${plan.commissionPercent}% fee · ${plan.applyStart} applies/day +${plan.refillAmount}/${plan.refillIntervalHours}h",
-                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val rank = PLAN_RANK[plan.id] ?: 0
+            val activeRank = PLAN_RANK[activeId] ?: 0
+            val isUpgrade = stillActive && rank > activeRank
+            val charge: Long = if (isUpgrade && endMs != null) {
+                val frac = ((endMs - now).toDouble() / (30.0 * 24 * 3600 * 1000)).coerceIn(0.0, 1.0)
+                maxOf(100L, Math.ceil((plan.pricePaise - activePrice) * frac).toLong())
+            } else plan.pricePaise
+            Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("${plan.label} · ${if (plan.pricePaise > 0) formatMoney(plan.pricePaise) + "/mo" else "Free"}",
+                            fontWeight = FontWeight.SemiBold)
+                        Text("${plan.commissionPercent}% fee · ${plan.applyStart} applies/day +${plan.refillAmount}/${plan.refillIntervalHours}h",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (isUpgrade) Text("Upgrade now · prorated ${formatMoney(charge)}",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                    if (plan.id == activeId) StatusChip("current")
                 }
-                if (plan.id == active?.id) StatusChip("current")
-                else OutlinedButton(onClick = { onSubscribe(plan.id) }) { Text(if (plan.pricePaise > 0) "Upgrade (pay)" else "Free") }
+                when {
+                    plan.id == activeId -> {}
+                    plan.id == "free" -> OutlinedButton(onClick = { onSubscribe("free", null) }) { Text("Switch to Free") }
+                    stillActive && rank < activeRank ->
+                        Text("Available after ${endIso?.take(10) ?: "expiry"}",
+                            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    else -> FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (walletPaise >= charge)
+                            Button(onClick = { onSubscribe(plan.id, "wallet") }) { Text("Pay from wallet (${formatMoney(charge)})") }
+                        else
+                            OutlinedButton(onClick = {}, enabled = false) { Text("Wallet low (${formatMoney(charge)})") }
+                        OutlinedButton(onClick = { onSubscribe(plan.id, "razorpay") }) { Text("Pay online") }
+                    }
+                }
             }
         }
     }

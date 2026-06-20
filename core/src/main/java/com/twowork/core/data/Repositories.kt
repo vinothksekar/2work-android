@@ -99,7 +99,7 @@ class WalletRepository(private val api: TwoWorkApi) {
     suspend fun wallet(): ApiResult<WalletResponse> = safeApi { api.wallet() }
     suspend fun topup(amount: String): ApiResult<TopupResponse> = safeApi { api.topupWallet(TopupRequest(amount)) }
     suspend fun subscription(): ApiResult<SubscriptionResponse> = safeApi { api.subscription() }
-    suspend fun subscribe(plan: String): ApiResult<SubscribeResponse> = safeApi { api.subscribe(SubscribeRequest(plan)) }
+    suspend fun subscribe(plan: String, method: String? = null): ApiResult<SubscribeResponse> = safeApi { api.subscribe(SubscribeRequest(plan, method)) }
     suspend fun capturePayment(reference: String, paymentId: String, orderId: String): ApiResult<Unit> =
         safeApi { api.capturePayment(CaptureRequest(reference, paymentId, orderId)); Unit }
     suspend fun quota(): ApiResult<QuotaResponse> = safeApi { api.quota() }
