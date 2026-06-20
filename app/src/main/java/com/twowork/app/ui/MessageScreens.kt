@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -275,6 +276,15 @@ fun ThreadScreen(conversation: Conversation, nav: Nav, modifier: Modifier = Modi
                     }
                 }
                 if (peerId != null) {
+                    OutlinedButton(onClick = {
+                        scope.launch {
+                            when (graph.messages.addContact(contactId = peerId)) {
+                                is ApiResult.Ok -> toast("Saved to your contacts")
+                                is ApiResult.Err -> toast("Could not add to contacts")
+                            }
+                        }
+                    }) { Text("+ Save") }
+                    Spacer(Modifier.width(8.dp))
                     OutlinedButton(onClick = { callPeer() }) { Text("📞 Call") }
                 }
             }
