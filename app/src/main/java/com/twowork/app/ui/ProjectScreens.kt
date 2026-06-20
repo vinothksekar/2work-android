@@ -19,6 +19,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -209,6 +210,8 @@ fun FindWorkScreen(nav: Nav, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(12.dp))
         Text("Find work", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        QuotaBanner(forClient = false)
         Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(tab == 0, { tab = 0 }, label = { Text("Recommended") })
             FilterChip(tab == 1, { tab = 1 }, label = { Text("Saved") })
@@ -241,6 +244,8 @@ fun ClientProjectsScreen(nav: Nav, modifier: Modifier = Modifier) {
             Text("My projects", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Button(onClick = { nav.push(Screen.PostProject) }) { Text("Post") }
         }
+        Spacer(Modifier.height(8.dp))
+        QuotaBanner(forClient = true, reloadKey = reload)
         Spacer(Modifier.height(8.dp))
         ApiContent(loaderKey = reload, loader = { graph.projects.mine() }) { resp ->
             if (resp.projects.isEmpty()) EmptyState("You haven't posted any projects yet.")
@@ -455,4 +460,28 @@ private fun AwardDialog(proposal: Proposal, onDismiss: () -> Unit, onAwarded: ()
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
+}
+
+// Visible daily-quota banner: freelancer applies-left / client project-posts-left.
+@Composable
+private fun QuotaBanner(forClient: Boolean, reloadKey: Any = Unit) {
+    val graph = LocalGraph.current
+    var resp by remember(reloadKey) { mutableStateOf<QuotaResponse?>(null) }
+    LaunchedEffect(reloadKey) { (graph.wallet.quota() as? ApiResult.Ok)?.let { resp = it.data } }
+    val r = resp ?: return
+    val info = if (forClient) r.postQuota?.let { Triple(it.available, it.granted, it.planLabel) }
+               else r.quota?.let { Triple(it.available, it.granted, it.planLabel) }
+    val (avail, granted, planLabel) = info ?: return
+    val label = if (forClient) "project posts" else "applies"
+    Surface(
+        color = if (avail <= 0) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            "$avail of $granted $label left today · $planLabel plan · resets at midnight IST",
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        )
+    }
 }

@@ -837,7 +837,23 @@ data class ApplyQuota(
 )
 
 @Serializable
-data class QuotaResponse(val applies: Boolean = false, val quota: ApplyQuota? = null)
+data class PostQuota(
+    val plan: String = "free",
+    val planLabel: String = "Free",
+    val granted: Int = 0,
+    val used: Int = 0,
+    val available: Int = 0,
+    val canPost: Boolean = true,
+    val resetInSeconds: Int = 0
+)
+
+@Serializable
+data class QuotaResponse(
+    val applies: Boolean = false,
+    val quota: ApplyQuota? = null,
+    val posts: Boolean = false,
+    val postQuota: PostQuota? = null
+)
 
 @Serializable
 data class BankAccount(
