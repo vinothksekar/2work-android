@@ -13,8 +13,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -22,6 +26,8 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import com.twowork.core.net.ApiResult
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.twowork.core.di.LocalGraph
@@ -84,8 +90,18 @@ fun AppRoot() {
 
 @Composable
 private fun Home(user: User) {
+    val graph = LocalGraph.current
     val nav = remember { Nav(Screen.Discover) }
     val current = nav.current
+
+    // Poll the unread notification count so the Account tab shows a live badge.
+    var unread by remember { mutableIntStateOf(0) }
+    LaunchedEffect(current) {
+        while (true) {
+            (graph.engagement.notifications() as? ApiResult.Ok)?.let { unread = it.data.unread }
+            delay(30_000)
+        }
+    }
 
     val workLabel = if (user.isClient) "Projects" else "Find work"
     val tabs = listOf(
@@ -107,7 +123,15 @@ private fun Home(user: User) {
                         NavigationBarItem(
                             selected = current == tab.screen,
                             onClick = { nav.selectTab(tab.screen) },
-                            icon = { Icon(tab.icon, contentDescription = tab.label) },
+                            icon = {
+                                if (tab.screen == Screen.Account && unread > 0) {
+                                    BadgedBox(badge = { Badge { Text(if (unread > 99) "99+" else "$unread") } }) {
+                                        Icon(tab.icon, contentDescription = tab.label)
+                                    }
+                                } else {
+                                    Icon(tab.icon, contentDescription = tab.label)
+                                }
+                            },
                             label = { Text(tab.label) }
                         )
                     }

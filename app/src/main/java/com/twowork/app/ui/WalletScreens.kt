@@ -236,7 +236,11 @@ private fun PlanCard(
                 }
                 when {
                     plan.id == activeId -> {}
-                    plan.id == "free" -> OutlinedButton(onClick = { onSubscribe("free", null) }) { Text("Switch to Free") }
+                    plan.id == "free" ->
+                        if (stillActive)
+                            Text("Reverts to Free on ${endIso?.take(10) ?: "expiry"}",
+                                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        else OutlinedButton(onClick = { onSubscribe("free", null) }) { Text("Switch to Free") }
                     stillActive && rank < activeRank ->
                         Text("Available after ${endIso?.take(10) ?: "expiry"}",
                             style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
