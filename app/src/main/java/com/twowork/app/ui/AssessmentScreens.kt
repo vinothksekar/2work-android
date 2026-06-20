@@ -160,7 +160,7 @@ private fun ExamRulesDialog(
                     "• ${timeLimitSeconds / 60} minute timer — auto-submits at 0\n" +
                         "• One question at a time — you cannot go back\n" +
                         "• Screenshots and screen recording are blocked\n" +
-                        "• Leaving the app ends the exam immediately (fail)\n" +
+                        "• Leaving the app is discouraged — you'll be warned (timer keeps running)\n" +
                         "• 60% correct to pass and earn the badge",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -186,6 +186,7 @@ fun ExamScreen(attemptId: String, skill: String, level: Int, nav: Nav, modifier:
     var remaining by remember { mutableIntStateOf(0) }
     var result by remember { mutableStateOf<SubmitResultResponse?>(null) }
     var submitting by remember { mutableStateOf(false) }
+    var warnings by remember { mutableIntStateOf(0) }
     val finished = result != null
 
     // Single submit path (manual / timeout / forfeit), guarded against double-fire.
@@ -206,11 +207,19 @@ fun ExamScreen(attemptId: String, skill: String, level: Int, nav: Nav, modifier:
         onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
     }
 
-    // App-switch / background = immediate forfeit.
+    // App-switch / background only WARNS now (an accidental switch shouldn't end
+    // the exam). The timer keeps running server-side, so you can't gain time.
     DisposableEffect(lifecycleOwner) {
+        var leftDuringExam = false
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP && !finished && questions.isNotEmpty()) {
-                scope.launch { finish(forfeited = true) }
+            when (event) {
+                Lifecycle.Event.ON_STOP -> if (!finished && questions.isNotEmpty()) leftDuringExam = true
+                Lifecycle.Event.ON_RESUME -> if (leftDuringExam && !finished) {
+                    leftDuringExam = false
+                    warnings += 1
+                    toast("Stay in the exam app — leaving is discouraged (notice $warnings)")
+                }
+                else -> {}
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -250,7 +259,7 @@ fun ExamScreen(attemptId: String, skill: String, level: Int, nav: Nav, modifier:
                     Surface(color = if (danger) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
                         shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth()) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Question ${index + 1} of ${questions.size}", fontWeight = FontWeight.SemiBold)
+                            Text("Q ${index + 1}/${questions.size}" + if (warnings > 0) "  ⚠ $warnings" else "", fontWeight = FontWeight.SemiBold)
                             Text("⏱ ${remaining / 60}:${(remaining % 60).toString().padStart(2, '0')}", fontWeight = FontWeight.Bold)
                         }
                     }
