@@ -671,7 +671,10 @@ data class Contact(
 )
 
 @Serializable
-data class ContactsResponse(val contacts: List<Contact> = emptyList())
+data class ContactsResponse(
+    val contacts: List<Contact> = emptyList(),
+    val myHandle: String? = null
+)
 
 @Serializable
 data class AddContactRequest(val contactId: String? = null, val handle: String? = null)

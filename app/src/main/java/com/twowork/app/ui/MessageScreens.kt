@@ -77,7 +77,7 @@ fun ContactsScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
             )
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(handle, { handle = it }, label = { Text("Add freelancer by @handle") },
+                OutlinedTextField(handle, { handle = it }, label = { Text("Add anyone by @handle") },
                     singleLine = true, modifier = Modifier.weight(1f))
                 Button(enabled = handle.trim().isNotEmpty(), onClick = {
                     val h = handle.trim().removePrefix("@")
@@ -91,7 +91,13 @@ fun ContactsScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
             }
             Spacer(Modifier.height(8.dp))
             ApiContent(loaderKey = reload, loader = { graph.messages.contacts() }) { resp ->
-                if (resp.contacts.isEmpty()) EmptyState("No contacts yet. Add a freelancer by @handle, or tap Save on a talent card.")
+              Column {
+                resp.myHandle?.let {
+                    Text("Your handle: @$it — share it so others can add you",
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.height(8.dp))
+                }
+                if (resp.contacts.isEmpty()) EmptyState("No contacts yet. Add anyone by @handle, or tap Save on a talent card.")
                 else LazyColumn {
                     items(resp.contacts, key = { it.contactId }) { c ->
                         ListCard {
@@ -125,6 +131,7 @@ fun ContactsScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
                         }
                     }
                 }
+              }
             }
         }
     }
