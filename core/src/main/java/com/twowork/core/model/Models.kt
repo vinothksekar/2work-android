@@ -468,7 +468,8 @@ data class AssessmentItem(
     val maxLevel: Int = 1,
     val badgeLevel: Int = 0,
     val nextLevel: Int? = null,
-    val feePaise: Long? = null
+    val feePaise: Long? = null,
+    val timeLimitSeconds: Int? = null
 )
 
 @Serializable
@@ -493,7 +494,10 @@ data class StartAttemptResponse(
 )
 
 @Serializable
-data class AttemptInfo(val id: String, val skill: String = "", val level: Int = 0, val total: Int = 0)
+data class AttemptInfo(
+    val id: String, val skill: String = "", val level: Int = 0, val total: Int = 0,
+    val timeLimitSeconds: Int = 0, val remainingSeconds: Int = 0
+)
 
 @Serializable
 data class QuestionOption(val key: String, val text: String)
@@ -512,7 +516,7 @@ data class AttemptQuestionsResponse(
 )
 
 @Serializable
-data class SubmitAnswersRequest(val answers: Map<String, String>)
+data class SubmitAnswersRequest(val answers: Map<String, String>, val forfeited: Boolean = false)
 
 @Serializable
 data class SkillCertificate(
@@ -534,7 +538,8 @@ data class SubmitResultResponse(
     val score: Int = 0,
     val total: Int = 0,
     val badge: SkillBadge? = null,
-    val certificate: SkillCertificate? = null
+    val certificate: SkillCertificate? = null,
+    val reason: String? = null
 )
 
 // ---- Categories ----
