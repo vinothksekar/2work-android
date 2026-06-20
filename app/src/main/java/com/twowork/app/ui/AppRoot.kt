@@ -1,8 +1,14 @@
 package com.twowork.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AccountCircle
@@ -19,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -28,8 +35,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import com.twowork.core.net.ApiResult
 import kotlinx.coroutines.delay
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import com.twowork.core.di.LocalGraph
 import com.twowork.core.model.Conversation
 import com.twowork.core.model.Project
@@ -140,7 +150,10 @@ private fun Home(user: User) {
             }
         }
     ) { padding ->
-        val mod = Modifier.padding(padding)
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            if (!user.isKycVerified) KycBanner(onVerify = { nav.push(Screen.Verification) })
+            Box(Modifier.weight(1f)) {
+        val mod = Modifier
         when (val screen = current) {
             Screen.Discover -> DiscoverScreen(user, nav, mod)
             Screen.Work -> if (user.isClient) ClientProjectsScreen(nav, mod) else FindWorkScreen(nav, mod)
@@ -162,6 +175,29 @@ private fun Home(user: User) {
             Screen.AdminExtras -> AdminExtrasScreen(nav, mod)
             is Screen.Exam -> ExamScreen(screen.attemptId, screen.skill, screen.level, nav, mod)
         }
+            }
+        }
     }
     CallLayer()
+}
+
+/** Persistent banner shown until the account is KYC-verified (KYC gates everything). */
+@Composable
+private fun KycBanner(onVerify: () -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Verify your identity to use 2Work", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    "KYC is required for every feature — posting, applying, messaging, calls, wallet, plans and assessments.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Button(onClick = onVerify) { Text("Verify") }
+        }
+    }
 }
