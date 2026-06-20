@@ -36,6 +36,7 @@ import io.livekit.android.events.collect
 import io.livekit.android.room.Room
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -55,6 +56,7 @@ object CallManager {
     private var room: Room? = null
     private var sessionId: String? = null
     private var muted = false
+    private var statusJob: Job? = null
     val state = kotlinx.coroutines.flow.MutableStateFlow<CallUi>(CallUi.Idle)
 
     fun init(ctx: Context, g: Graph) { appContext = ctx.applicationContext; graph = g }
@@ -115,18 +117,40 @@ object CallManager {
         try {
             val r = LiveKit.create(ctx)
             room = r
-            scope.launch { r.events.collect { e -> if (e is RoomEvent.Disconnected) reset() } }
+            // Hang up instantly if the SFU drops us or the other participant leaves.
+            scope.launch {
+                r.events.collect { e ->
+                    if (e is RoomEvent.Disconnected || e is RoomEvent.ParticipantDisconnected) reset()
+                }
+            }
             r.connect(url, token)
             r.localParticipant.setMicrophoneEnabled(true)
             muted = false
             state.value = CallUi.Active(name, false, System.currentTimeMillis())
+            startStatusPolling()
         } catch (e: Exception) {
             toast(e.message ?: "Call failed to connect")
             reset()
         }
     }
 
+    // Backup to the SFU events: poll the call session so we tear down promptly
+    // when the other side ends/declines (covers cases the SFU is slow to report).
+    private fun startStatusPolling() {
+        if (statusJob != null) return
+        statusJob = scope.launch {
+            while (true) {
+                delay(2500)
+                val id = sessionId ?: break
+                val g = graph ?: break
+                val s = (g.calls.status(id) as? ApiResult.Ok)?.data
+                if (s == "ended" || s == "declined" || s == "missed") { reset(); break }
+            }
+        }
+    }
+
     private fun reset() {
+        statusJob?.cancel(); statusJob = null
         room?.let { runCatching { it.disconnect() } }
         room = null; sessionId = null; muted = false
         state.value = CallUi.Idle

@@ -246,6 +246,9 @@ interface TwoWorkApi {
     @POST("api/calls/{id}/end")
     suspend fun endCall(@Path("id") id: String, @Body body: EmptyBody = EmptyBody()): JsonElement
 
+    @GET("api/calls/{id}")
+    suspend fun callStatus(@Path("id") id: String): CallStatusResponse
+
     // ---- Attachments ----
     @POST("api/attachments")
     suspend fun uploadAttachment(@Query("name") name: String, @Body file: RequestBody): AttachmentUploadResponse

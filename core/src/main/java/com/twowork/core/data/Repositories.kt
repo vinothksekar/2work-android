@@ -83,6 +83,7 @@ class CallRepository(private val api: TwoWorkApi) {
     suspend fun accept(id: String): ApiResult<CallAcceptResponse> = safeApi { api.acceptCall(id) }
     suspend fun decline(id: String): ApiResult<Unit> = safeApi { api.declineCall(id); Unit }
     suspend fun end(id: String): ApiResult<Unit> = safeApi { api.endCall(id); Unit }
+    suspend fun status(id: String): ApiResult<String> = safeApi { api.callStatus(id).status }
 }
 
 /** Notifications + invitations + reports. */

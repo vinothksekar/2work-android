@@ -79,6 +79,7 @@ fun ContactsScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
         pendingCall = null
     }
     fun callContact(id: String, name: String) {
+        if (!user.isKycVerified) { toast("Verify your identity (KYC) to start audio calls."); return }
         if (hasMicPermission(context)) CallManager.start(id, name)
         else { pendingCall = id to name; micLauncher.launch(android.Manifest.permission.RECORD_AUDIO) }
     }
@@ -203,6 +204,7 @@ fun ThreadScreen(conversation: Conversation, nav: Nav, modifier: Modifier = Modi
         pendingCall = null
     }
     fun callPeer() {
+        if (me?.isKycVerified != true) { toast("Verify your identity (KYC) to start audio calls."); return }
         val id = peerId ?: return toast("This person can't be called")
         if (hasMicPermission(context)) CallManager.start(id, peerName)
         else { pendingCall = id to peerName; micLauncher.launch(android.Manifest.permission.RECORD_AUDIO) }
@@ -276,14 +278,15 @@ fun ThreadScreen(conversation: Conversation, nav: Nav, modifier: Modifier = Modi
                     }
                 }
                 if (peerId != null) {
+                    val savingClient = !amClient // I'm a freelancer; the peer is a client
                     OutlinedButton(onClick = {
                         scope.launch {
                             when (graph.messages.addContact(contactId = peerId)) {
-                                is ApiResult.Ok -> toast("Saved to your contacts")
+                                is ApiResult.Ok -> toast(if (savingClient) "Subscribed — you'll be notified of their new projects" else "Saved to your contacts")
                                 is ApiResult.Err -> toast("Could not add to contacts")
                             }
                         }
-                    }) { Text("+ Save") }
+                    }) { Text(if (savingClient) "🔔 Subscribe" else "+ Save") }
                     Spacer(Modifier.width(8.dp))
                     OutlinedButton(onClick = { callPeer() }) { Text("📞 Call") }
                 }

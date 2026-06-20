@@ -30,6 +30,7 @@ data class User(
     val isClient get() = role == "client"
     val isFreelancer get() = role == "freelancer"
     val isAdmin get() = role == "admin"
+    val isKycVerified get() = kycStatus == "verified" || adminAccess
 }
 
 @Serializable
@@ -711,6 +712,9 @@ data class IncomingCallResponse(val incoming: IncomingCall? = null)
 
 @Serializable
 data class CallAcceptResponse(val room: String = "", val url: String = "", val token: String = "")
+
+@Serializable
+data class CallStatusResponse(val status: String = "")
 
 @Serializable
 data class OpenConversationResponse(val thread: ConversationRef)
