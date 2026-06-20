@@ -292,6 +292,9 @@ interface TwoWorkApi {
     @GET("api/categories")
     suspend fun categories(): CategoriesResponse
 
+    @GET("api/skill-catalog")
+    suspend fun skillCatalog(): SkillCatalogResponse
+
     // ---- Admin extras ----
     @POST("api/admin/wallet/{userId}/adjust")
     suspend fun adminAdjustWallet(

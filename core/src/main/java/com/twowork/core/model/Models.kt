@@ -550,6 +550,12 @@ data class Category(val id: String = "", val name: String = "", val slug: String
 @Serializable
 data class CategoriesResponse(val categories: List<Category> = emptyList())
 
+@Serializable
+data class SkillCategory(val name: String = "", val slug: String = "", val skills: List<String> = emptyList())
+
+@Serializable
+data class SkillCatalogResponse(val categories: List<SkillCategory> = emptyList())
+
 // ---- Admin extras ----
 @Serializable
 data class AdminWalletAdjustRequest(val amount: Double, val reason: String)

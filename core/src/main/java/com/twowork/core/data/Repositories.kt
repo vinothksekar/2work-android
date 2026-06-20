@@ -145,9 +145,10 @@ class CertificateRepository(private val api: TwoWorkApi) {
     suspend fun mine(): ApiResult<SkillCertificatesResponse> = safeApi { api.myCertificates() }
 }
 
-/** Project categories (public). */
+/** Project categories + skill catalog (public). */
 class CategoryRepository(private val api: TwoWorkApi) {
     suspend fun all(): ApiResult<CategoriesResponse> = safeApi { api.categories() }
+    suspend fun skillCatalog(): ApiResult<SkillCatalogResponse> = safeApi { api.skillCatalog() }
 }
 
 /** Admin extended operations. */

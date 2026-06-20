@@ -4,6 +4,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -21,6 +24,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -284,6 +288,49 @@ private fun ClientProfileForm(profile: Profile?, onSave: (ClientProfileRequest) 
     }
 }
 
+/** Category → skills chip picker that toggles skills in a comma-separated string. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun SkillCatalogPicker(selectedCsv: String, onChange: (String) -> Unit) {
+    val graph = LocalGraph.current
+    var catalog by remember { mutableStateOf<List<SkillCategory>>(emptyList()) }
+    var expanded by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        (graph.categories.skillCatalog() as? ApiResult.Ok)?.let { catalog = it.data.categories }
+    }
+    if (catalog.isEmpty()) return
+    val selected = selectedCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    val selectedLower = selected.map { it.lowercase() }.toHashSet()
+    fun toggle(skill: String) {
+        val list = selected.toMutableList()
+        val idx = list.indexOfFirst { it.equals(skill, ignoreCase = true) }
+        if (idx >= 0) list.removeAt(idx) else list.add(skill)
+        onChange(list.joinToString(", "))
+    }
+    OutlinedButton(onClick = { expanded = !expanded }) {
+        Text(if (expanded) "Hide skill catalog" else "＋ Choose skills from catalog")
+    }
+    if (expanded) {
+        Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            catalog.forEach { cat ->
+                Text(cat.name, style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(4.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    cat.skills.forEach { skill ->
+                        FilterChip(
+                            selected = selectedLower.contains(skill.lowercase()),
+                            onClick = { toggle(skill) },
+                            label = { Text(skill) }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+            }
+        }
+    }
+}
+
 @Composable
 private fun FreelancerProfileForm(profile: Profile?, onSave: (FreelancerProfileRequest) -> Unit) {
     var headline by remember { mutableStateOf(profile?.headline ?: "") }
@@ -303,6 +350,7 @@ private fun FreelancerProfileForm(profile: Profile?, onSave: (FreelancerProfileR
         Field("Headline", headline) { headline = it }
         Field("Public handle", handle) { handle = it }
         Field("Skills (comma separated)", skills) { skills = it }
+        SkillCatalogPicker(selectedCsv = skills, onChange = { skills = it })
         Field("Hourly rate (INR)", rate) { rate = it }
         Field("Bio (20+ chars)", bio, lines = 4) { bio = it }
         Field("Location", location) { location = it }

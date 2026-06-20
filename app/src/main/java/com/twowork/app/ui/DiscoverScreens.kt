@@ -109,6 +109,7 @@ private fun TalentList(user: User) {
     val graph = LocalGraph.current
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
+    var skillFilter by remember { mutableStateOf("") }
     var items by remember { mutableStateOf<List<Freelancer>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -118,7 +119,7 @@ private fun TalentList(user: User) {
     fun load() {
         scope.launch {
             loading = true; error = null
-            when (val r = graph.discovery.freelancers(q = query)) {
+            when (val r = graph.discovery.freelancers(q = query, skills = skillFilter.ifBlank { null })) {
                 is ApiResult.Ok -> items = r.data.freelancers
                 is ApiResult.Err -> error = r.message
             }
@@ -128,6 +129,7 @@ private fun TalentList(user: User) {
     LaunchedEffect(Unit) { load() }
 
     SearchBar(query, { query = it }, onSearch = { load() })
+    SkillCatalogPicker(selectedCsv = skillFilter, onChange = { skillFilter = it; load() })
     LazyColumn(Modifier.fillMaxWidth()) {
         items(items, key = { it.handle ?: it.fullName }) { f ->
             FreelancerCard(

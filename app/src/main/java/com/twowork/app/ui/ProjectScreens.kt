@@ -294,6 +294,7 @@ fun PostProjectScreen(nav: Nav, modifier: Modifier = Modifier) {
             OutlinedTextField(description, { description = it }, label = { Text("Description (20+ chars)") }, modifier = Modifier.fillMaxWidth().height(140.dp))
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(skills, { skills = it }, label = { Text("Skills (comma separated)") }, modifier = Modifier.fillMaxWidth())
+            SkillCatalogPicker(selectedCsv = skills, onChange = { skills = it })
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(budget, { budget = it }, label = { Text("Budget (INR)") }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
