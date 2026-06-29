@@ -45,7 +45,7 @@ sealed interface CallUi {
     data object Idle : CallUi
     data class Outgoing(val name: String) : CallUi
     data class Incoming(val id: String, val name: String) : CallUi
-    data class Active(val name: String, val muted: Boolean, val connectedAtMs: Long) : CallUi
+    data class Active(val name: String, val muted: Boolean, val cameraOn: Boolean, val connectedAtMs: Long) : CallUi
 }
 
 /** Holds the single active call + LiveKit room. Driven by CallLayer + Call buttons. */
@@ -56,6 +56,7 @@ object CallManager {
     private var room: Room? = null
     private var sessionId: String? = null
     private var muted = false
+    private var cameraOn = false
     private var statusJob: Job? = null
     val state = kotlinx.coroutines.flow.MutableStateFlow<CallUi>(CallUi.Idle)
 
@@ -112,6 +113,13 @@ object CallManager {
         (state.value as? CallUi.Active)?.let { state.value = it.copy(muted = muted) }
     }
 
+    fun toggleCamera() {
+        val r = room ?: return
+        cameraOn = !cameraOn
+        scope.launch { runCatching { r.localParticipant.setCameraEnabled(cameraOn) } }
+        (state.value as? CallUi.Active)?.let { state.value = it.copy(cameraOn = cameraOn) }
+    }
+
     private suspend fun connect(url: String, token: String, name: String) {
         val ctx = appContext ?: return
         try {
@@ -126,7 +134,8 @@ object CallManager {
             r.connect(url, token)
             r.localParticipant.setMicrophoneEnabled(true)
             muted = false
-            state.value = CallUi.Active(name, false, System.currentTimeMillis())
+            cameraOn = false
+            state.value = CallUi.Active(name, false, false, System.currentTimeMillis())
             startStatusPolling()
         } catch (e: Exception) {
             toast(e.message ?: "Call failed to connect")
@@ -152,13 +161,16 @@ object CallManager {
     private fun reset() {
         statusJob?.cancel(); statusJob = null
         room?.let { runCatching { it.disconnect() } }
-        room = null; sessionId = null; muted = false
+        room = null; sessionId = null; muted = false; cameraOn = false
         state.value = CallUi.Idle
     }
 }
 
 fun hasMicPermission(ctx: Context): Boolean =
     ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+
+fun hasCameraPermission(ctx: Context): Boolean =
+    ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
 /** Global call overlay: polls for incoming calls and renders the active-call UI. */
 @Composable
@@ -185,8 +197,8 @@ fun CallLayer() {
     }
 
     when (val s = state) {
-        is CallUi.Outgoing -> CallOverlay("Calling ${s.name}…", muted = false, showMute = false, onMute = {}, onHang = { CallManager.hangUp() })
-        is CallUi.Active -> CallOverlay("In call · ${s.name}", muted = s.muted, showMute = true, connectedAtMs = s.connectedAtMs, onMute = { CallManager.toggleMute() }, onHang = { CallManager.hangUp() })
+        is CallUi.Outgoing -> CallOverlay("Calling ${s.name}…", muted = false, cameraOn = false, showMute = false, onMute = {}, onCamera = {}, onHang = { CallManager.hangUp() })
+        is CallUi.Active -> CallOverlay("In call · ${s.name}", muted = s.muted, cameraOn = s.cameraOn, showMute = true, connectedAtMs = s.connectedAtMs, onMute = { CallManager.toggleMute() }, onCamera = { CallManager.toggleCamera() }, onHang = { CallManager.hangUp() })
         is CallUi.Incoming -> AlertDialog(
             onDismissRequest = {},
             title = { Text("Incoming call") },
@@ -217,14 +229,16 @@ private fun formatCallDuration(ms: Long): String {
 private fun CallOverlay(
     title: String,
     muted: Boolean,
+    cameraOn: Boolean,
     showMute: Boolean,
     connectedAtMs: Long? = null,
     onMute: () -> Unit,
+    onCamera: () -> Unit,
     onHang: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = {},
-        title = { Text("📞 Audio call") },
+        title = { Text(if (cameraOn) "📹 Video call" else "📞 Audio call") },
         text = {
             Column {
                 Text(title)
@@ -240,11 +254,23 @@ private fun CallOverlay(
                         fontWeight = FontWeight.Bold
                     )
                 }
+                if (cameraOn) {
+                    Spacer(Modifier.height(4.dp))
+                    Text("Camera is ON — remote participant can see you",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary)
+                }
             }
         },
         confirmButton = {
             Button(onClick = onHang, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Hang up") }
         },
-        dismissButton = { if (showMute) OutlinedButton(onClick = onMute) { Text(if (muted) "Unmute" else "Mute") } }
+        dismissButton = {
+            if (showMute) {
+                OutlinedButton(onClick = onCamera) { Text(if (cameraOn) "Camera off" else "Camera on") }
+                Spacer(Modifier.height(4.dp))
+                OutlinedButton(onClick = onMute) { Text(if (muted) "Unmute" else "Mute") }
+            }
+        }
     )
 }
