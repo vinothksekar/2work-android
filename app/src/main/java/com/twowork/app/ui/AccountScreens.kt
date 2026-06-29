@@ -346,6 +346,7 @@ private fun FreelancerProfileForm(profile: Profile?, onSave: (FreelancerProfileR
     var github by remember { mutableStateOf(profile?.social?.get("github") ?: "") }
     var twitter by remember { mutableStateOf(profile?.social?.get("twitter") ?: "") }
     var siteUrl by remember { mutableStateOf(profile?.social?.get("website") ?: "") }
+    var videoUrl by remember { mutableStateOf(profile?.videoUrl ?: "") }
     Column(Modifier.fillMaxWidth()) {
         Field("Headline", headline) { headline = it }
         Field("Public handle", handle) { handle = it }
@@ -360,6 +361,9 @@ private fun FreelancerProfileForm(profile: Profile?, onSave: (FreelancerProfileR
         Field("GitHub URL", github) { github = it }
         Field("Twitter/X URL", twitter) { twitter = it }
         Field("Website URL", siteUrl) { siteUrl = it }
+        Spacer(Modifier.height(4.dp))
+        Text("Video intro", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Field("YouTube / Loom URL", videoUrl) { videoUrl = it }
         RepeatEditor(
             heading = "Work experience",
             items = experience,
@@ -378,7 +382,8 @@ private fun FreelancerProfileForm(profile: Profile?, onSave: (FreelancerProfileR
                 skills = skills.split(",").map { it.trim() }.filter { it.isNotEmpty() },
                 hourlyRate = rate.ifBlank { null }, location = location, availability = availability,
                 handle = handle.ifBlank { null }, isPublic = isPublic, experience = experience.toList(),
-                social = mapOf("linkedin" to linkedin, "github" to github, "twitter" to twitter, "website" to siteUrl).filterValues { it.isNotBlank() }
+                social = mapOf("linkedin" to linkedin, "github" to github, "twitter" to twitter, "website" to siteUrl).filterValues { it.isNotBlank() },
+                videoUrl = videoUrl.trim()
             ))
         }) { Text("Save worker profile") }
     }

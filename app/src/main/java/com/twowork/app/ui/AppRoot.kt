@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.runtime.Composable
@@ -66,6 +67,9 @@ sealed interface Screen {
     data object Affiliate : Screen
     data object Contacts : Screen
     data object AdminExtras : Screen
+    data object Teams : Screen
+    data class TeamDetail(val teamId: String, val teamName: String) : Screen
+    data class WorkDiary(val contractId: String, val contractTitle: String) : Screen
     data class Exam(val attemptId: String, val skill: String, val level: Int) : Screen
 }
 
@@ -115,13 +119,14 @@ private fun Home(user: User) {
     }
 
     val workLabel = if (user.isClient) "Projects" else "Find work"
-    val tabs = listOf(
-        Tab(Screen.Discover, "Discover", Icons.Filled.Explore),
-        Tab(Screen.Work, workLabel, Icons.Filled.Work),
-        Tab(Screen.Contracts, "Contracts", Icons.Filled.ReceiptLong),
-        Tab(Screen.Inbox, "Inbox", Icons.AutoMirrored.Filled.Chat),
-        Tab(Screen.Account, "Account", Icons.Filled.AccountCircle)
-    )
+    val tabs = buildList {
+        add(Tab(Screen.Discover, "Discover", Icons.Filled.Explore))
+        add(Tab(Screen.Work, workLabel, Icons.Filled.Work))
+        add(Tab(Screen.Contracts, "Contracts", Icons.Filled.ReceiptLong))
+        if (user.isClient) add(Tab(Screen.Teams, "Teams", Icons.Filled.Group))
+        add(Tab(Screen.Inbox, "Inbox", Icons.AutoMirrored.Filled.Chat))
+        add(Tab(Screen.Account, "Account", Icons.Filled.AccountCircle))
+    }
     val isRoot = tabs.any { it.screen == current }
 
     BackHandler(enabled = nav.stack.size > 1) { nav.pop() }
@@ -157,7 +162,7 @@ private fun Home(user: User) {
         when (val screen = current) {
             Screen.Discover -> DiscoverScreen(user, nav, mod)
             Screen.Work -> if (user.isClient) ClientProjectsScreen(nav, mod) else FindWorkScreen(nav, mod)
-            Screen.Contracts -> ContractsScreen(user, mod)
+            Screen.Contracts -> ContractsScreen(user, nav, mod)
             Screen.Inbox -> ConversationsScreen(nav, mod)
             Screen.Account -> AccountScreen(user, nav, mod)
             is Screen.ProjectDetail -> ProjectDetailScreen(user, screen.project, nav, mod)
@@ -173,6 +178,9 @@ private fun Home(user: User) {
             Screen.Affiliate -> AffiliateScreen(nav, mod)
             Screen.Contacts -> ContactsScreen(user, nav, mod)
             Screen.AdminExtras -> AdminExtrasScreen(nav, mod)
+            Screen.Teams -> TeamsScreen(user, nav, mod)
+            is Screen.TeamDetail -> TeamDetailScreen(screen.teamId, screen.teamName, nav, mod)
+            is Screen.WorkDiary -> WorkDiaryScreen(screen.contractId, screen.contractTitle, nav, mod)
             is Screen.Exam -> ExamScreen(screen.attemptId, screen.skill, screen.level, nav, mod)
         }
             }

@@ -15,7 +15,9 @@ import com.twowork.core.data.MessageRepository
 import com.twowork.core.data.ProfileRepository
 import com.twowork.core.data.ProjectRepository
 import com.twowork.core.data.SessionManager
+import com.twowork.core.data.TeamRepository
 import com.twowork.core.data.WalletRepository
+import com.twowork.core.data.WorkDiaryRepository
 import com.twowork.core.net.AppCookieJar
 import com.twowork.core.net.Network
 
@@ -38,6 +40,8 @@ class Graph(context: Context, debug: Boolean) {
     val wallet = WalletRepository(api)
     val certificates = CertificateRepository(api)
     val categories = CategoryRepository(api)
+    val teams = TeamRepository(api)
+    val workDiary = WorkDiaryRepository(api)
     val adminExtras = AdminExtrasRepository(api)
 }
 

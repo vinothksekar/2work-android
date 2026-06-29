@@ -151,6 +151,31 @@ class CategoryRepository(private val api: TwoWorkApi) {
     suspend fun skillCatalog(): ApiResult<SkillCatalogResponse> = safeApi { api.skillCatalog() }
 }
 
+/** Client team management. */
+class TeamRepository(private val api: TwoWorkApi) {
+    suspend fun teams(): ApiResult<TeamsResponse> = safeApi { api.teams() }
+    suspend fun create(name: String, description: String = ""): ApiResult<Unit> =
+        safeApi { api.createTeam(CreateTeamRequest(name, description)); Unit }
+    suspend fun detail(id: String): ApiResult<TeamDetailResponse> = safeApi { api.teamDetail(id) }
+    suspend fun delete(id: String): ApiResult<Unit> = safeApi { api.deleteTeam(id); Unit }
+    suspend fun invite(teamId: String, email: String): ApiResult<Unit> =
+        safeApi { api.inviteToTeam(teamId, InviteToTeamRequest(email)); Unit }
+    suspend fun acceptInvitation(token: String): ApiResult<Unit> =
+        safeApi { api.acceptTeamInvitation(token); Unit }
+    suspend fun updateRole(teamId: String, userId: String, role: String): ApiResult<Unit> =
+        safeApi { api.updateMemberRole(teamId, userId, UpdateMemberRoleRequest(role)); Unit }
+    suspend fun removeMember(teamId: String, userId: String): ApiResult<Unit> =
+        safeApi { api.removeTeamMember(teamId, userId); Unit }
+}
+
+/** WorkDiary — upload and fetch work screenshots. */
+class WorkDiaryRepository(private val api: TwoWorkApi) {
+    suspend fun upload(contractId: String, thumbnailData: String): ApiResult<Unit> =
+        safeApi { api.uploadWorkScreenshot(WorkScreenshotRequest(contractId, thumbnailData)); Unit }
+    suspend fun screenshots(contractId: String): ApiResult<WorkScreenshotsResponse> =
+        safeApi { api.contractScreenshots(contractId) }
+}
+
 /** Admin extended operations. */
 class AdminExtrasRepository(private val api: TwoWorkApi) {
     suspend fun adjustWallet(userId: String, amount: Double, reason: String): ApiResult<AdminWalletAdjustResponse> =

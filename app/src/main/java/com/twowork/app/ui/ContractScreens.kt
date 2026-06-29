@@ -55,7 +55,7 @@ private sealed interface MsAction {
 }
 
 @Composable
-fun ContractsScreen(user: User, modifier: Modifier = Modifier) {
+fun ContractsScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
     val graph = LocalGraph.current
     val scope = rememberCoroutineScope()
     val toast = rememberToaster()
@@ -72,6 +72,7 @@ fun ContractsScreen(user: User, modifier: Modifier = Modifier) {
             else LazyColumn {
                 items(resp.contracts, key = { it.id }) { contract ->
                     ContractCard(user, contract,
+                        onWorkDiary = { nav.push(Screen.WorkDiary(contract.id, contract.projectTitle ?: "Contract")) },
                         onFund = { milestoneId ->
                             scope.launch {
                                 when (val r = graph.contracts.fund(milestoneId)) {
@@ -134,6 +135,7 @@ fun ContractsScreen(user: User, modifier: Modifier = Modifier) {
 private fun ContractCard(
     user: User,
     contract: Contract,
+    onWorkDiary: () -> Unit,
     onFund: (String) -> Unit,
     onAccept: (String) -> Unit,
     onAction: (MsAction) -> Unit
@@ -148,6 +150,10 @@ private fun ContractCard(
                 " · ${formatMoney(contract.totalPaise, contract.currency)}",
             style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        if (contract.isHourly && contract.status == "active") {
+            Spacer(Modifier.height(4.dp))
+            OutlinedButton(onClick = onWorkDiary) { Text("📷 WorkDiary") }
+        }
         Spacer(Modifier.height(8.dp))
         contract.milestones.forEach { ms ->
             val latestDelivery = contract.deliverables.filter { it.milestoneId == ms.id }.maxByOrNull { it.revisionNo }

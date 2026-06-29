@@ -103,6 +103,7 @@ data class Profile(
     val experience: List<ExperienceEntry> = emptyList(),
     val showcase: List<ShowcaseEntry> = emptyList(),
     val social: Map<String, String> = emptyMap(),
+    @SerialName("video_url") val videoUrl: String = "",
     // shared
     val location: String? = null
 )
@@ -208,8 +209,76 @@ data class FreelancerProfileRequest(
     val handle: String? = null,
     val isPublic: Boolean = false,
     val experience: List<ExperienceEntry> = emptyList(),
-    val social: Map<String, String> = emptyMap()
+    val social: Map<String, String> = emptyMap(),
+    val videoUrl: String = ""
 )
+
+// ---------------------------------------------------------------------------
+// Teams
+// ---------------------------------------------------------------------------
+@Serializable
+data class Team(
+    val id: String = "",
+    val name: String = "",
+    val description: String = "",
+    @SerialName("owner_id") val ownerId: String = "",
+    @SerialName("member_count") val memberCount: Int = 0,
+    @SerialName("created_at") val createdAt: String? = null
+)
+
+@Serializable
+data class TeamMember(
+    val id: String = "",
+    @SerialName("user_id") val userId: String = "",
+    @SerialName("full_name") val fullName: String = "",
+    val email: String = "",
+    val role: String = "member",
+    @SerialName("joined_at") val joinedAt: String? = null
+)
+
+@Serializable
+data class TeamInvitation(
+    val id: String = "",
+    val email: String = "",
+    @SerialName("invited_by_name") val invitedByName: String = "",
+    @SerialName("expires_at") val expiresAt: String? = null
+)
+
+@Serializable
+data class TeamsResponse(val teams: List<Team> = emptyList())
+
+@Serializable
+data class TeamDetailResponse(
+    val team: Team = Team(),
+    val members: List<TeamMember> = emptyList(),
+    val invitations: List<TeamInvitation> = emptyList()
+)
+
+@Serializable
+data class CreateTeamRequest(val name: String, val description: String = "")
+
+@Serializable
+data class InviteToTeamRequest(val email: String)
+
+@Serializable
+data class UpdateMemberRoleRequest(val role: String)
+
+// ---------------------------------------------------------------------------
+// WorkDiary
+// ---------------------------------------------------------------------------
+@Serializable
+data class WorkScreenshot(
+    val id: String = "",
+    @SerialName("contract_id") val contractId: String = "",
+    @SerialName("captured_at") val capturedAt: String? = null,
+    @SerialName("thumbnail_data") val thumbnailData: String = ""
+)
+
+@Serializable
+data class WorkScreenshotsResponse(val screenshots: List<WorkScreenshot> = emptyList())
+
+@Serializable
+data class WorkScreenshotRequest(val contractId: String, val thumbnailData: String)
 
 @Serializable
 data class VerificationSubmitRequest(
@@ -399,6 +468,7 @@ data class Rating(
 data class Contract(
     val id: String = "",
     val status: String = "",
+    @SerialName("contract_type") val contractType: String = "fixed",
     @SerialName("total_paise") val totalPaise: Long = 0,
     val currency: String = "INR",
     @SerialName("accepted_at") val acceptedAt: String? = null,
@@ -412,7 +482,9 @@ data class Contract(
     val disputes: List<Dispute> = emptyList(),
     val ratings: List<Rating> = emptyList(),
     @SerialName("client_ratings") val clientRatings: List<Rating> = emptyList()
-)
+) {
+    val isHourly get() = contractType == "hourly"
+}
 
 @Serializable
 data class ContractsResponse(val contracts: List<Contract> = emptyList())

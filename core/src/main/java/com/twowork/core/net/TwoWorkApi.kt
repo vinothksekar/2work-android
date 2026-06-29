@@ -295,6 +295,42 @@ interface TwoWorkApi {
     @GET("api/skill-catalog")
     suspend fun skillCatalog(): SkillCatalogResponse
 
+    // ---- Teams (client-side) ----
+    @GET("api/teams")
+    suspend fun teams(): TeamsResponse
+
+    @POST("api/teams")
+    suspend fun createTeam(@Body body: CreateTeamRequest): JsonElement
+
+    @GET("api/teams/{id}")
+    suspend fun teamDetail(@Path("id") id: String): TeamDetailResponse
+
+    @DELETE("api/teams/{id}")
+    suspend fun deleteTeam(@Path("id") id: String): JsonElement
+
+    @POST("api/teams/{id}/invite")
+    suspend fun inviteToTeam(@Path("id") id: String, @Body body: InviteToTeamRequest): JsonElement
+
+    @POST("api/teams/accept/{token}")
+    suspend fun acceptTeamInvitation(@Path("token") token: String, @Body body: EmptyBody = EmptyBody()): JsonElement
+
+    @PUT("api/teams/{id}/members/{userId}/role")
+    suspend fun updateMemberRole(
+        @Path("id") id: String,
+        @Path("userId") userId: String,
+        @Body body: UpdateMemberRoleRequest
+    ): JsonElement
+
+    @DELETE("api/teams/{id}/members/{userId}")
+    suspend fun removeTeamMember(@Path("id") id: String, @Path("userId") userId: String): JsonElement
+
+    // ---- WorkDiary (screenshots) ----
+    @POST("api/work-screenshots")
+    suspend fun uploadWorkScreenshot(@Body body: WorkScreenshotRequest): JsonElement
+
+    @GET("api/contracts/{contractId}/screenshots")
+    suspend fun contractScreenshots(@Path("contractId") contractId: String): WorkScreenshotsResponse
+
     // ---- Admin extras ----
     @POST("api/admin/wallet/{userId}/adjust")
     suspend fun adminAdjustWallet(
