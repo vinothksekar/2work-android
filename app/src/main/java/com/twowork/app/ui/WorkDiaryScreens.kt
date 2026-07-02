@@ -81,6 +81,11 @@ fun WorkDiaryScreen(contractId: String, contractTitle: String, nav: Nav, modifie
         }
     }
 
+    var billing by remember { mutableStateOf<List<com.twowork.core.model.BillingPeriod>>(emptyList()) }
+    androidx.compose.runtime.LaunchedEffect(reload) {
+        (graph.workDiary.billing(contractId) as? ApiResult.Ok)?.let { billing = it.data.periods }
+    }
+
     TopBarScaffold(title = "WorkDiary: $contractTitle", onBack = { nav.pop() }) { m ->
         ApiContent(loaderKey = reload, loader = { graph.workDiary.screenshots(contractId) }, modifier = m) { resp ->
             Column {
@@ -93,6 +98,22 @@ fun WorkDiaryScreen(contractId: String, contractTitle: String, nav: Nav, modifie
                         style = MaterialTheme.typography.titleSmall)
                     Button(onClick = { imagePicker.launch("image/*") }, enabled = !uploading) {
                         Text(if (uploading) "Uploading…" else "Add photo")
+                    }
+                }
+                if (billing.isNotEmpty()) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                        Text("Weekly billing", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        billing.forEach { p ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("${"%.1f".format(p.minutes / 60.0)}h tracked" +
+                                        (p.periodEnd?.let { " · to ${it.take(10)}" } ?: ""),
+                                    style = MaterialTheme.typography.bodySmall)
+                                Text(com.twowork.core.ui.formatMoney(p.grossPaise), fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
                     }
                 }
                 HorizontalDivider()

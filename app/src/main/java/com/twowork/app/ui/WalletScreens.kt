@@ -64,10 +64,12 @@ fun WalletScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
             var sub by remember(reload) { mutableStateOf<SubscriptionResponse?>(null) }
             var settle by remember(reload) { mutableStateOf<SettlementsResponse?>(null) }
             var quota by remember(reload) { mutableStateOf<ApplyQuota?>(null) }
+            var invoices by remember(reload) { mutableStateOf<List<Invoice>>(emptyList()) }
             androidx.compose.runtime.LaunchedEffect(reload) {
                 (graph.wallet.subscription() as? ApiResult.Ok)?.let { sub = it.data }
                 (graph.wallet.settlements() as? ApiResult.Ok)?.let { settle = it.data }
                 if (user.isFreelancer) (graph.wallet.quota() as? ApiResult.Ok)?.let { quota = it.data.quota }
+                (graph.wallet.invoices() as? ApiResult.Ok)?.let { invoices = it.data.invoices }
             }
             LazyColumn(
                 Modifier.fillMaxWidth().padding(16.dp),
@@ -109,6 +111,9 @@ fun WalletScreen(user: User, nav: Nav, modifier: Modifier = Modifier) {
                 item { Text("Wallet activity", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
                 if (wallet.transactions.isEmpty()) item { EmptyState("No wallet activity yet.") }
                 items(wallet.transactions, key = { it.id }) { TxnRow(it) }
+                item { Text("Invoices", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
+                if (invoices.isEmpty()) item { EmptyState("No invoices yet. Invoices are generated for plan purchases and platform fees.") }
+                items(invoices, key = { "inv-" + it.id }) { InvoiceRow(it) }
             }
         }
     }
@@ -280,6 +285,23 @@ private fun BankSettlementCard(settle: SettlementsResponse?, onAddBank: () -> Un
                 Text(formatMoney(s.amountPaise), fontWeight = FontWeight.SemiBold)
                 StatusChip(s.status)
             }
+        }
+    }
+}
+
+@Composable
+private fun InvoiceRow(inv: Invoice) {
+    ListCard {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(inv.invoiceNumber, fontWeight = FontWeight.SemiBold)
+                if (inv.description.isNotBlank()) Text(inv.description, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("GST @ ${inv.gstBps / 100}% included: ${formatMoney(inv.gstPaise)}" +
+                        (inv.createdAt?.let { " · ${it.take(10)}" } ?: ""),
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Text(formatMoney(inv.totalPaise), fontWeight = FontWeight.Bold)
         }
     }
 }

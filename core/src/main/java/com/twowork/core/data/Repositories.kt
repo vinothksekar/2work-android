@@ -113,6 +113,7 @@ class ProfileRepository(private val api: TwoWorkApi) {
 /** Wallet, plans/subscription, apply quota, bank account and settlements. */
 class WalletRepository(private val api: TwoWorkApi) {
     suspend fun wallet(): ApiResult<WalletResponse> = safeApi { api.wallet() }
+    suspend fun invoices(): ApiResult<InvoicesResponse> = safeApi { api.invoices() }
     suspend fun topup(amount: String): ApiResult<TopupResponse> = safeApi { api.topupWallet(TopupRequest(amount)) }
     suspend fun subscription(): ApiResult<SubscriptionResponse> = safeApi { api.subscription() }
     suspend fun subscribe(plan: String, method: String? = null): ApiResult<SubscribeResponse> = safeApi { api.subscribe(SubscribeRequest(plan, method)) }
@@ -174,6 +175,8 @@ class WorkDiaryRepository(private val api: TwoWorkApi) {
         safeApi { api.uploadWorkScreenshot(WorkScreenshotRequest(contractId, thumbnailData)); Unit }
     suspend fun screenshots(contractId: String): ApiResult<WorkScreenshotsResponse> =
         safeApi { api.contractScreenshots(contractId) }
+    suspend fun billing(contractId: String): ApiResult<BillingResponse> =
+        safeApi { api.contractBilling(contractId) }
 }
 
 /** Admin extended operations. */

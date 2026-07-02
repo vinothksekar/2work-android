@@ -1047,3 +1047,39 @@ data class AffiliateResponse(
     val referrals: List<AffiliateReferral> = emptyList(),
     val stats: AffiliateStats = AffiliateStats()
 )
+
+// ── GST invoices + hourly billing (web v1.24.0 parity) ──────────────────────
+
+@Serializable
+data class Invoice(
+    val id: String,
+    @SerialName("invoice_number") val invoiceNumber: String = "",
+    val kind: String = "",
+    val description: String = "",
+    @SerialName("total_paise") val totalPaise: Long = 0,
+    @SerialName("gst_bps") val gstBps: Int = 1800,
+    @SerialName("gst_paise") val gstPaise: Long = 0,
+    @SerialName("billed_gstin") val billedGstin: String = "",
+    @SerialName("created_at") val createdAt: String? = null
+)
+
+@Serializable
+data class InvoicesResponse(val invoices: List<Invoice> = emptyList())
+
+@Serializable
+data class BillingPeriod(
+    val id: String,
+    @SerialName("period_start") val periodStart: String? = null,
+    @SerialName("period_end") val periodEnd: String? = null,
+    @SerialName("screenshots_count") val screenshotsCount: Int = 0,
+    val minutes: Int = 0,
+    @SerialName("hourly_rate_paise") val hourlyRatePaise: Long = 0,
+    @SerialName("gross_paise") val grossPaise: Long = 0,
+    @SerialName("client_fee_paise") val clientFeePaise: Long = 0,
+    @SerialName("freelancer_fee_paise") val freelancerFeePaise: Long = 0,
+    val status: String = "billed",
+    @SerialName("created_at") val createdAt: String? = null
+)
+
+@Serializable
+data class BillingResponse(val periods: List<BillingPeriod> = emptyList())

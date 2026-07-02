@@ -69,6 +69,12 @@ interface TwoWorkApi {
     @GET("api/wallet")
     suspend fun wallet(): WalletResponse
 
+    @GET("api/invoices")
+    suspend fun invoices(): InvoicesResponse
+
+    @GET("api/contracts/{id}/billing")
+    suspend fun contractBilling(@Path("id") id: String): BillingResponse
+
     @POST("api/wallet/topup")
     suspend fun topupWallet(@Body body: TopupRequest): TopupResponse
 
